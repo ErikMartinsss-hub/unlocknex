@@ -72,6 +72,10 @@ export default function Page() {
           <Logo />
           <nav className="hidden items-center gap-6 text-sm text-zinc-400 lg:flex">
             <a href="#servicos" className="transition hover:text-neon-400">Serviços</a>
+            <Link href="/remote" className="inline-flex items-center gap-1.5 transition hover:text-neon-400">
+              <Icon name="wrench" className="h-4 w-4" />
+              Aluguel de ferramentas
+            </Link>
             <a href="#recentes" className="transition hover:text-neon-400">Recentes</a>
             <a href="#como-funciona" className="transition hover:text-neon-400">Como funciona</a>
             <a href="#pagamentos" className="transition hover:text-neon-400">Pagamentos</a>

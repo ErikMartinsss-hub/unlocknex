@@ -5,22 +5,28 @@
  *   npm i -D firebase-admin dotenv
  *   npm run seed
  *
- * Variáveis de ambiente (em .env.local):
- *   FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
- *   (ou FIREBASE_SERVICE_ACCOUNT apontando para o arquivo JSON baixado no console)
+ * Credenciais (no .env.local ou via variável de ambiente):
+ *   FIREBASE_SERVICE_ACCOUNT_FILE=caminho/do/serviceAccountKey.json  (recomendado)
+ *   ou FIREBASE_SERVICE_ACCOUNT=<JSON em uma linha>
+ *   ou FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY
  */
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
+config({ path: '.env.local' });
+
 const projectId = process.env.FIREBASE_PROJECT_ID;
-if (!projectId) {
-  console.error('Faltou FIREBASE_PROJECT_ID no .env.local');
+if (!projectId && !process.env.FIREBASE_SERVICE_ACCOUNT && !process.env.FIREBASE_SERVICE_ACCOUNT_FILE) {
+  console.error('Credenciais do Firebase ausentes. Veja o cabeçalho deste script.');
   process.exit(1);
 }
 
 let app;
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+if (process.env.FIREBASE_SERVICE_ACCOUNT_FILE) {
+  app = initializeApp({ credential: cert(JSON.parse(readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_FILE, 'utf8'))) }, 'seed');
+} else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   app = initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) }, 'seed');
 } else {
   app = initializeApp(
@@ -36,6 +42,14 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
 }
 
 const db = getFirestore(app);
+
+try {
+  const { getSecurityRules } = await import('firebase-admin/security-rules');
+  await getSecurityRules(app).releaseFirestoreRulesetFromSource('firestore.rules');
+  console.log('Rules do Firestore publicadas no projeto.');
+} catch (e) {
+  console.warn('Não foi possível publicar as rules automaticamente:', e.message);
+}
 
 const categories = [
   { id: 'cat-frp', slug: 'frp', name: 'FRP (Desbloqueio de Conta)', icon: 'shield', color: '#00ff66' },

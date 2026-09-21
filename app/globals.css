@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-outfit);
+}
+
+@theme {
+  --color-neon-100: #d3ffe0;
+  --color-neon-200: #a8ffc4;
+  --color-neon-300: #78ffa2;
+  --color-neon-400: #3eff66;
+  --color-neon-500: #00ff66;
+  --color-neon-600: #00cc52;
+  --color-neon-700: #00993d;
+}
+
+:root {
+  --background: #060607;
+  --foreground: #f4f4f5;
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(0, 255, 102, 0.3);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0b;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+@utility neon-glow-sm {
+  box-shadow: 0 0 18px -4px rgba(0, 255, 102, 0.55);
+}
+
+@utility neon-glow {
+  box-shadow: 0 0 34px -8px rgba(0, 255, 102, 0.6);
+}
+
+@utility card-glass {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+}
+
+@utility btn-neon {
+  background: var(--color-neon-500);
+  color: #09090b;
+  font-weight: 700;
+  border-radius: 0.75rem;
+  transition: all 0.18s ease;
+  box-shadow: 0 0 22px -6px rgba(0, 255, 102, 0.55);
+}
+.btn-neon:hover {
+  background: var(--color-neon-400);
+  box-shadow: 0 0 30px -6px rgba(0, 255, 102, 0.75);
+  transform: translateY(-1px);
+}
+
+@utility input-dark {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid #27272a;
+  background: #0a0a0b;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.9rem;
+  color: #f4f4f5;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input-dark:focus {
+  border-color: rgba(0, 255, 102, 0.6);
+  box-shadow: 0 0 0 3px rgba(0, 255, 102, 0.12);
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@utility animate-marquee {
+  animation: marquee 30s linear infinite;
+}

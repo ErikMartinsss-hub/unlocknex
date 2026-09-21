@@ -1,0 +1,63 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Catálogo público para qualquer pessoa logada
+    match /categories/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /services/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Perfil do usuário: dono lê e atualiza (não pode mudar saldo/role)
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId)
+        && request.resource.data.balance == resource.data.balance
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.uid == resource.data.uid;
+      allow delete: if false;
+    }
+
+    // Pedidos: usuário cria e lê os próprios
+    match /orders/{orderId} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read, update: if isOwner(resource.data.userId);
+      allow delete: if false;
+    }
+
+    // Transações: usuário lê/cria as próprias
+    match /transactions/{txId} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read: if isOwner(resource.data.userId);
+      allow update, delete: if false;
+    }
+
+    // Tickets e mensagens: criador e dono
+    match /tickets/{ticketId} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read, update: if isOwner(resource.data.userId);
+      allow delete: if false;
+    }
+
+    match /ticketMessages/{msgId} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read: if isSignedIn();
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,172 @@
+'use client';
+
+import { useState, Suspense, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { doc, runTransaction, collection } from 'firebase/firestore';
+import { RequireAuth } from '@/components/Guard';
+import { AppShell } from '@/components/AppShell';
+import { useAuth } from '@/components/AuthProvider';
+import { useToast } from '@/components/Toaster';
+import { useServices } from '@/lib/hooks';
+import { getDbFirebase } from '@/lib/firebase';
+import { brl } from '@/lib/format';
+
+function NovoPedido() {
+  const { user, profile, refreshProfile } = useAuth();
+  const { push } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const services = useServices();
+  const selectedId = searchParams.get('servico');
+
+  const [serviceId, setServiceId] = useState(selectedId ?? '');
+  const [identifier, setIdentifier] = useState('');
+  const [model, setModel] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const svc = useMemo(() => services.find((s) => s.id === serviceId), [services, serviceId]);
+  const balance = profile?.balance ?? 0;
+  const insufficient = svc ? balance < svc.price : false;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!svc) {
+      setError('Selecione um serviço.');
+      return;
+    }
+    if (insufficient) {
+      setError(`Saldo insuficiente. Você precisa de ${brl(svc.price)} e tem ${brl(balance)}.`);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const db = getDbFirebase();
+      const uid = user!.uid;
+      await runTransaction(db, async (tx) => {
+        const userRef = doc(db, 'users', uid);
+        const snap = await tx.get(userRef);
+        const current = (snap.data()?.balance as number | undefined) ?? 0;
+        if (current < svc.price) throw new Error('Saldo insuficiente');
+        tx.update(userRef, { balance: current - svc.price });
+        tx.set(doc(collection(db, 'orders')), {
+          userId: uid,
+          serviceId: svc.id,
+          deviceIdentifier: identifier.trim(),
+          deviceModel: model.trim() || null,
+          status: 'processando',
+          cost: svc.price,
+          createdAt: Date.now(),
+        });
+        tx.set(doc(collection(db, 'transactions')), {
+          userId: uid,
+          amount: -svc.price,
+          type: 'charge',
+          status: 'concluido',
+          paymentMethod: 'saldo',
+          reference: svc.slug,
+          createdAt: Date.now(),
+        });
+      });
+      await refreshProfile();
+      push('Pedido criado! Acompanhe o status.', 'ok');
+      router.replace('/pedidos');
+    } catch (err) {
+      setError((err as Error).message === 'Saldo insuficiente' ? 'Saldo insuficiente para este serviço.' : 'Não foi possível criar o pedido. Tente novamente.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AppShell header="Novo pedido">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="card-glass rounded-2xl p-6">
+          <h2 className="text-lg font-bold text-zinc-100">Dados do serviço</h2>
+          <p className="mt-1 text-sm text-zinc-500">Selecione o serviço e informe os dados do aparelho.</p>
+
+          <form onSubmit={submit} className="mt-6 space-y-5">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">Serviço</label>
+              <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="input-dark" required>
+                <option value="">— Escolha um serviço —</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} — {brl(s.price)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {svc && (
+              <div className="flex items-center justify-between rounded-xl border border-neon-500/25 bg-neon-500/5 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">{svc.name}</p>
+                  <p className="text-xs text-zinc-500">{svc.deliveryTime}</p>
+                </div>
+                <p className="text-xl font-extrabold text-neon-500">{brl(svc.price)}</p>
+              </div>
+            )}
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label htmlFor="identifier" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  IMEI / Identificador *
+                </label>
+                <input
+                  id="identifier"
+                  required
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="Ex.: 356938035643809"
+                  className="input-dark font-mono"
+                />
+              </div>
+              <div>
+                <label htmlFor="model" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Modelo do aparelho
+                </label>
+                <input
+                  id="model"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="Ex.: Galaxy A54"
+                  className="input-dark"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">{error}</p>
+            )}
+
+            <div className="flex items-center justify-between border-t border-zinc-800 pt-5">
+              <div>
+                <p className="text-xs text-zinc-500">Saldo disponível</p>
+                <p className={`text-sm font-bold ${insufficient ? 'text-red-400' : 'text-zinc-100'}`}>{brl(balance)}</p>
+              </div>
+              <button
+                type="submit"
+                disabled={busy || !svc || insufficient}
+                className="btn-neon px-6 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? 'Criando…' : `Confirmar ${svc ? `— ${brl(svc.price)}` : ''}`}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+export default function NovoPedidoPage() {
+  return (
+    <RequireAuth>
+      <Suspense>
+        <NovoPedido />
+      </Suspense>
+    </RequireAuth>
+  );
+}

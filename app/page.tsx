@@ -23,7 +23,7 @@ export default function Page() {
             >
               Entrar
             </Link>
-            <Link href="/registro" className="btn-neon px-4 py-2 text-sm">
+            <Link href="/register" className="btn-neon px-4 py-2 text-sm">
               Criar conta
             </Link>
           </div>
@@ -46,7 +46,7 @@ export default function Page() {
             A plataforma pensada para o técnico brasileiro.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/registro" className="btn-neon px-6 py-3 text-sm">
+            <Link href="/register" className="btn-neon px-6 py-3 text-sm">
               Começar agora
               <Icon name="arrowRight" className="ml-2 inline h-4 w-4" />
             </Link>
@@ -90,7 +90,7 @@ export default function Page() {
             <h2 className="text-3xl font-extrabold tracking-tight">Serviços disponíveis</h2>
             <p className="mt-2 text-zinc-400">Escolha o serviço, envie os dados do aparelho e receba a liberação.</p>
           </div>
-          <Link href="/registro" className="hidden items-center gap-1.5 text-sm font-semibold text-neon-400 transition hover:text-neon-300 sm:inline-flex">
+          <Link href="/register" className="hidden items-center gap-1.5 text-sm font-semibold text-neon-400 transition hover:text-neon-300 sm:inline-flex">
             Criar conta e começar
             <Icon name="arrowRight" className="h-4 w-4" />
           </Link>

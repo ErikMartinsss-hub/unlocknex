@@ -66,6 +66,8 @@ body {
 }
 
 @utility btn-neon {
+  position: relative;
+  overflow: hidden;
   background: var(--color-neon-500);
   color: #09090b;
   font-weight: 700;
@@ -77,6 +79,20 @@ body {
   background: var(--color-neon-400);
   box-shadow: 0 0 30px -6px rgba(0, 255, 102, 0.75);
   transform: translateY(-1px);
+}
+.btn-neon::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  transform: translateX(-130%) skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  pointer-events: none;
+}
+.btn-neon:hover::after {
+  animation: shine 0.8s ease;
 }
 
 @utility input-dark {
@@ -106,4 +122,111 @@ body {
 
 @utility animate-marquee {
   animation: marquee 30s linear infinite;
+}
+
+/* ---- Identidade visual - animações ---- */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translateX(-50%) scale(1.07);
+  }
+}
+
+@utility animate-glow-pulse {
+  animation: glow-pulse 7s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@utility animate-float {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+@keyframes gradient-x {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@utility text-gradient-animate {
+  background: linear-gradient(90deg, var(--color-neon-400), #22d3ee, var(--color-neon-500));
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-x 5s ease infinite;
+}
+
+@utility neon-text-glow {
+  filter: drop-shadow(0 0 18px rgba(0, 255, 102, 0.45));
+}
+
+@keyframes shine {
+  to {
+    transform: translateX(320%) skewX(-20deg);
+  }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

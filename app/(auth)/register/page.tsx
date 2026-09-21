@@ -45,6 +45,13 @@ function RegisterForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-10">
       <div className="w-full max-w-md">
+        <Link
+          href="/"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition hover:text-zinc-200"
+        >
+          <Icon name="arrowLeft" className="h-4 w-4" />
+          Voltar para a página inicial
+        </Link>
         <div className="mb-8 flex justify-center">
           <Logo size="h-16 w-16" />
         </div>

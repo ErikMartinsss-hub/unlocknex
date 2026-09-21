@@ -16,6 +16,7 @@ const paths: Record<string, IconPath> = {
   chevronDown: <><path d="m6 9 6 6 6-6" /></>,
   chevronRight: <><path d="m9 6 6 6-6 6" /></>,
   arrowRight: <><path d="M4 12h16M13 5l7 7-7 7" /></>,
+  arrowLeft: <><path d="M20 12H4M11 5l-7 7 7 7" /></>,
   shield: <><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z" /></>,
   chip: <><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" /></>,
   bolt: <><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" /></>,

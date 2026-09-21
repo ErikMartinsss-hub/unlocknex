@@ -257,7 +257,7 @@ export default function Page() {
           <div>
             <h4 className="font-bold text-zinc-100">Empresa</h4>
             <ul className="mt-4 space-y-2.5">
-              <li><a href="/" className="transition hover:text-neon-300">Home</a></li>
+              <li><Link href="/" className="transition hover:text-neon-300">Home</Link></li>
               <li><a href="#servicos" className="transition hover:text-neon-300">Serviços</a></li>
               <li><a href="#como-funciona" className="transition hover:text-neon-300">Como funciona</a></li>
               <li><a href="/tickets" className="transition hover:text-neon-300">Suporte</a></li>

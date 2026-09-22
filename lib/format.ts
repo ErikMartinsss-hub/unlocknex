@@ -49,6 +49,26 @@ export function ticketStatus(status: string): StatusInfo {
   }
 }
 
+export function apiStatusLabel(status: string | undefined): string | null {
+  if (!status) return null;
+  const map: Record<string, string> = {
+    submetido: 'Enviado à HeartUnlocks',
+    pending: 'Na fila',
+    in_progress: 'Em processamento',
+    processing: 'Em processamento',
+    success: 'Confirmado pela HeartUnlocks',
+    completed: 'Confirmado pela HeartUnlocks',
+    done: 'Confirmado pela HeartUnlocks',
+    rejected: 'Recusado pela HeartUnlocks',
+    failed: 'Falhou no provedor',
+    refunded: 'Reembolsado pelo provedor',
+    cancelled: 'Cancelado',
+    canceled: 'Cancelado',
+    error: 'Erro no provedor',
+  };
+  return map[status.toLowerCase()] ?? status;
+}
+
 export function transactionType(type: string): StatusInfo {
   switch (type) {
     case 'deposit':

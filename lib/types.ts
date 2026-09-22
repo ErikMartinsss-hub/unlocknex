@@ -27,6 +27,9 @@ export type Service = {
   price: number;
   deliveryTime: string;
   isActive: boolean;
+  provider?: 'auto' | 'manual';
+  productUuid?: string | null;
+  apiField?: string | null;
 };
 
 export type Order = {
@@ -38,6 +41,10 @@ export type Order = {
   status: 'processando' | 'concluido' | 'pendente' | 'cancelado';
   cost: number;
   createdAt: number;
+  provider?: 'auto' | 'manual';
+  apiStatus?: string;
+  apiOrderId?: string;
+  providerError?: string;
 };
 
 export type Transaction = {

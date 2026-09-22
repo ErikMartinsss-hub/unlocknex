@@ -8,7 +8,7 @@ import { useToast } from '@/components/Toaster';
 import { useServices, useOrders } from '@/lib/hooks';
 import { Icon } from '@/components/Icon';
 import { StatusBadge } from '@/components/StatusBadge';
-import { brl, dateTimeBR, orderStatus } from '@/lib/format';
+import { brl, dateTimeBR, orderStatus, apiStatusLabel } from '@/lib/format';
 
 function Dashboard() {
   const { profile } = useAuth();
@@ -124,6 +124,9 @@ function Dashboard() {
                       <td className="px-5 py-3.5 font-semibold text-zinc-200">{brl(o.cost)}</td>
                       <td className="px-5 py-3.5">
                         <StatusBadge info={orderStatus(o.status)} />
+                        {o.apiStatus && (
+                          <p className="mt-1 text-[11px] leading-tight text-zinc-500">{apiStatusLabel(o.apiStatus)}</p>
+                        )}
                       </td>
                     </tr>
                   );

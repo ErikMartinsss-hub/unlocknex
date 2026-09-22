@@ -18,6 +18,12 @@ export type ServiceCategory = {
   color: string;
 };
 
+export type ServiceFieldDef = {
+  key: string;
+  label: string;
+  required?: boolean;
+};
+
 export type Service = {
   id: string;
   slug: string;
@@ -30,6 +36,7 @@ export type Service = {
   provider?: 'auto' | 'manual';
   productUuid?: string | null;
   apiField?: string | null;
+  apiExtra?: ServiceFieldDef[] | null;
 };
 
 export type Order = {
@@ -45,6 +52,8 @@ export type Order = {
   apiStatus?: string;
   apiOrderId?: string;
   providerError?: string;
+  replayRaw?: string;
+  delivery?: Record<string, string> | string | null;
 };
 
 export type Transaction = {

@@ -11,6 +11,34 @@ function sanitizeId(value: string): boolean {
   return /^[A-Za-z0-9_-]{16,40}$/.test(value);
 }
 
+function decodeReplay(replay: unknown): { replayRaw?: string; delivery?: Record<string, string> | string | null } {
+  if (typeof replay !== 'string' || !replay) return {};
+  let decoded = replay;
+  try {
+    const buf = Buffer.from(replay, 'base64').toString('utf8');
+    if (buf) decoded = buf;
+  } catch {
+    decoded = replay;
+  }
+  let delivery: Record<string, string> | string | null = decoded;
+  try {
+    const parsed = JSON.parse(decoded) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const obj: Record<string, string> = {};
+      let count = 0;
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        if (count >= 10) break;
+        obj[k] = String(v);
+        count += 1;
+      }
+      delivery = obj;
+    }
+  } catch {
+    delivery = decoded;
+  }
+  return { replayRaw: replay, delivery };
+}
+
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as {
     reference_id?: string;
@@ -54,7 +82,12 @@ export async function POST(req: NextRequest) {
   }
 
   const rawStatus = String(body.status ?? '');
-  const patch: Record<string, unknown> = { apiStatus: rawStatus, updatedAt: Date.now() };
+  const replayInfo = decodeReplay(body.replay);
+  const patch: Record<string, unknown> = {
+    apiStatus: rawStatus,
+    updatedAt: Date.now(),
+    ...replayInfo,
+  };
   if (remoteId) patch.apiOrderId = remoteId;
 
   if (TERMINAL_SUCCESS.has(rawStatus.toLowerCase())) {

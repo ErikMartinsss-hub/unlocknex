@@ -26,7 +26,7 @@ export default function RemotePage() {
     return out;
   }, [query, filter]);
 
-  const rentHref = user ? '/tickets' : '/login';
+  const rentHref = (id: string) => (user ? `/pedidos/novo?servico=${id}` : '/login');
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -122,7 +122,7 @@ export default function RemotePage() {
                   </h3>
                   <div className="mt-auto flex items-center justify-between gap-2 pt-4">
                     <span className="text-lg font-extrabold text-neon-500">{s.price === 0 ? 'Grátis' : brl(s.price)}</span>
-                    <Link href={rentHref} className="btn-neon inline-flex items-center gap-1 px-3.5 py-2 text-xs">
+                    <Link href={rentHref(s.id)} className="btn-neon inline-flex items-center gap-1 px-3.5 py-2 text-xs">
                       {user ? 'Reservar' : 'Entrar p/ reservar'}
                       <Icon name="arrowRight" className="h-3.5 w-3.5" />
                     </Link>

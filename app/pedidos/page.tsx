@@ -9,6 +9,33 @@ import { Icon } from '@/components/Icon';
 import { StatusBadge } from '@/components/StatusBadge';
 import { brl, dateTimeBR, orderStatus, apiStatusLabel } from '@/lib/format';
 
+type OrderRow = { delivery?: Record<string, string> | string | null; replayRaw?: string };
+
+function DeliveryBox({ o }: { o: OrderRow }) {
+  if (!o.delivery) return null;
+  const obj = typeof o.delivery === 'object' ? o.delivery : null;
+  const text = obj ? null : o.delivery;
+  return (
+    <details className="mt-1.5">
+      <summary className="cursor-pointer text-[11px] font-semibold text-neon-400 hover:underline">Ver credenciais</summary>
+      <div className="mt-1.5 w-64 rounded-lg border border-neon-500/20 bg-zinc-900/80 p-2.5 font-mono text-[11px] leading-relaxed">
+        {obj ? (
+          <dl className="space-y-1">
+            {Object.entries(obj).map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <dt className="shrink-0 text-zinc-500">{k}:</dt>
+                <dd className="break-all text-zinc-200">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <pre className="whitespace-pre-wrap break-words text-zinc-200">{String(text)}</pre>
+        )}
+      </div>
+    </details>
+  );
+}
+
 function Pedidos() {
   const { profile } = useAuth();
   const services = useServices();
@@ -65,6 +92,7 @@ function Pedidos() {
                         {o.apiStatus && (
                           <p className="mt-1 text-[11px] leading-tight text-zinc-500">{apiStatusLabel(o.apiStatus)}</p>
                         )}
+                        <DeliveryBox o={o} />
                       </td>
                     </tr>
                   );

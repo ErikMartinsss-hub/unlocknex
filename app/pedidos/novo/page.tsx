@@ -21,6 +21,8 @@ function NovoPedido() {
 
   const [serviceId, setServiceId] = useState(selectedId ?? '');
   const [identifier, setIdentifier] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [extras, setExtras] = useState<Record<string, string>>({});
   const [model, setModel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +44,22 @@ function NovoPedido() {
     setBusy(true);
     setError(null);
     let orderRef: DocumentReference | null = null;
+    const isAuto = svc.provider === 'auto';
+    const fieldKey = svc.apiField ?? '';
+    const fields: Record<string, string | number> = {};
+    let deviceLabel = identifier.trim();
+    if (isAuto) {
+      if (fieldKey === 'Quantity') {
+        fields.Quantity = quantity;
+        deviceLabel = `Aluguel de ferramenta (x${quantity})`;
+      } else {
+        fields[fieldKey] = identifier.trim();
+      }
+      for (const ex of svc.apiExtra ?? []) {
+        const v = extras[ex.key]?.trim();
+        if (v) fields[ex.key] = v;
+      }
+    }
     try {
       const db = getDbFirebase();
       const uid = user!.uid;
@@ -55,7 +73,7 @@ function NovoPedido() {
         tx.set(orderRef, {
           userId: uid,
           serviceId: svc.id,
-          deviceIdentifier: identifier.trim(),
+          deviceIdentifier: deviceLabel,
           deviceModel: model.trim() || null,
           status: 'processando',
           cost: svc.price,
@@ -80,7 +98,7 @@ function NovoPedido() {
           const res = await fetch('/api/heartunlocks/order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-            body: JSON.stringify({ orderId: orderRef!.id, productUuid: svc.productUuid, identifier: identifier.trim() }),
+            body: JSON.stringify({ orderId: orderRef!.id, fields }),
           });
           const data = (await res.json().catch(() => ({ ok: false }))) as { ok?: boolean; orderUuid?: string; message?: string };
           if (res.ok && data.ok) {
@@ -136,32 +154,66 @@ function NovoPedido() {
             )}
 
             <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label htmlFor="identifier" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  IMEI / Identificador *
-                </label>
-                <input
-                  id="identifier"
-                  required
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder={svc?.apiField ? `${svc.apiField} do aparelho` : 'Ex.: 356938035643809'}
-                  className="input-dark font-mono"
-                />
-              </div>
+              {svc?.apiField === 'Quantity' ? (
+                <div>
+                  <label htmlFor="quantity" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Quantidade *
+                  </label>
+                  <input
+                    id="quantity"
+                    type="number"
+                    min={1}
+                    step={1}
+                    required
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
+                    className="input-dark font-mono"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label htmlFor="identifier" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    {svc?.apiField ? `${svc.apiField} *` : 'IMEI / Identificador *'}
+                  </label>
+                  <input
+                    id="identifier"
+                    required={svc?.provider === 'auto'}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder={svc?.apiField ? `${svc.apiField} do aparelho` : 'Ex.: 356938035643809'}
+                    className="input-dark font-mono"
+                  />
+                </div>
+              )}
               <div>
                 <label htmlFor="model" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Modelo do aparelho
+                  Modelo / Observação
                 </label>
                 <input
                   id="model"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="Ex.: Galaxy A54"
+                  placeholder={svc?.apiField === 'Quantity' ? 'Opcional' : 'Ex.: Galaxy A54'}
                   className="input-dark"
                 />
               </div>
             </div>
+
+            {svc?.apiExtra?.map((extra) => (
+              <div key={extra.key}>
+                <label htmlFor={`extra-${extra.key}`} className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  {extra.label} {extra.required ? '*' : ''}
+                </label>
+                <input
+                  id={`extra-${extra.key}`}
+                  required={!!extra.required}
+                  value={extras[extra.key] ?? ''}
+                  onChange={(e) => setExtras((prev) => ({ ...prev, [extra.key]: e.target.value }))}
+                  placeholder={extra.label}
+                  className="input-dark"
+                />
+              </div>
+            ))}
 
             {error && (
               <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">{error}</p>

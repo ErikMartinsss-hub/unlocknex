@@ -47,6 +47,13 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Pagamentos PIX: leitura pelo dono, escrita apenas pelo servidor (webhook/rota)
+    match /payments/{paymentId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update, delete: if false;
+    }
+
     // Tickets e mensagens: criador e dono
     match /tickets/{ticketId} {
       allow create: if isOwner(request.resource.data.userId);

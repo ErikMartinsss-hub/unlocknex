@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { RequireAuth } from '@/components/Guard';
 import { AppShell } from '@/components/AppShell';
 import { useAuth } from '@/components/AuthProvider';
-import { useToast } from '@/components/Toaster';
 import { useServices, useOrders } from '@/lib/hooks';
 import { Icon } from '@/components/Icon';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -12,7 +12,7 @@ import { brl, dateTimeBR, orderStatus, apiStatusLabel } from '@/lib/format';
 
 function Dashboard() {
   const { profile } = useAuth();
-  const { push } = useToast();
+  const router = useRouter();
   const services = useServices();
   const orders = useOrders(profile?.uid, 8);
   const quick = services.slice(0, 4);
@@ -36,7 +36,7 @@ function Dashboard() {
             </div>
             <p className="mt-2 text-3xl font-extrabold text-neon-500">{brl(profile?.balance ?? 0)}</p>
             <button
-              onClick={() => push('Recarga em breve. Estamos integrando o PIX.', 'info')}
+              onClick={() => router.push('/perfil')}
               className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-neon-400 hover:text-neon-300"
             >
               <Icon name="plus" className="h-3.5 w-3.5" />

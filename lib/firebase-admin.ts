@@ -11,7 +11,10 @@ function getAdminApp(): App {
     app = getApps()[0];
     return app;
   }
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_FILE) {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_B64) {
+    const json = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8');
+    app = initializeApp({ credential: cert(JSON.parse(json)) });
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT_FILE) {
     app = initializeApp({
       credential: cert(JSON.parse(readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_FILE, 'utf8'))),
     });

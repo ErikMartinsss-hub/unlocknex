@@ -14,6 +14,18 @@ type WooviWebhookShape = {
 };
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handleWebhook(req);
+  } catch (err) {
+    console.error('webhook erro:', err);
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleWebhook(req: NextRequest) {
   const raw = await req.text();
   const signature = req.headers.get('x-webhook-signature');
   const testToken = req.headers.get('x-test-token');
@@ -84,8 +96,12 @@ export async function POST(req: NextRequest) {
         by: 'woovi-webhook',
       });
     });
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 500 });
+  } catch (err) {
+    console.error('webhook transação:', err);
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ ok: true });

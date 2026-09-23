@@ -65,18 +65,23 @@ function publicKeysUrl(): string {
   return `${BASE_URL}/webhook/public-keys`;
 }
 
+// Fallback (chave pública de assinatura atual da Woovi) caso o endpoint esteja
+// temporariamente indisponível. A rotação é acompanhada pelo endpoint, preferido.
+const WOOVI_FALLBACK_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC/+NtIkjzevvqD+I3MMv3bLXDt\npvxBjY4BsRrSdca3rtAwMcRYYvxSnd7jagVLpctMiOxQO8ieUCKLSWHpsMAjO/zZ\nWMKbqoG8MNpi/u3fp6zz0mcHCOSqYsPUUG19buW8bis5ZZ2IZgBObWSpTvJ0cnj6\nHKBAA82Jln+lGwS1MwIDAQAB\n-----END PUBLIC KEY-----\n`;
+
 export async function fetchWooviPublicKeys(): Promise<string[]> {
   if (cachedKeys) return cachedKeys;
-  let res: Response;
+  let keys: string[] = [];
   try {
-    res = await fetch(publicKeysUrl(), { cache: 'no-store' });
+    const res = await fetch(publicKeysUrl(), { cache: 'no-store' });
+    const json = (await res.json().catch(() => null)) as { public_keys?: { key: string }[] } | null;
+    keys = (json?.public_keys ?? []).map((u) => u.key).filter(Boolean);
   } catch {
-    return cachedKeys ?? [];
+    // indisponibilidade do endpoint: usa o fallback abaixo
   }
-  const json = (await res.json().catch(() => null)) as { public_keys?: { key: string }[] } | null;
-  const keys = (json?.public_keys ?? []).map((u) => u.key).filter(Boolean);
-  if (keys.length) cachedKeys = keys;
-  return cachedKeys ?? [];
+  if (!keys.length) keys = [WOOVI_FALLBACK_PUBLIC_KEY];
+  cachedKeys = keys;
+  return cachedKeys;
 }
 
 export async function verifyWooviWebhook(rawBody: string, signature: string | null): Promise<boolean> {

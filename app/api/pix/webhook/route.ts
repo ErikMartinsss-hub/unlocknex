@@ -19,17 +19,23 @@ export async function POST(req: NextRequest) {
   const testToken = req.headers.get('x-test-token');
   const devToken = process.env.WOOVI_WEBHOOK_TOKEN ?? '';
 
-  const valid =
-    (!!signature && (await verifyWooviWebhook(raw, signature))) ||
-    (!!devToken && testToken === devToken);
-  if (!valid) return NextResponse.json({ ok: false, message: 'Assinatura inválida.' }, { status: 401 });
-
   let body: WooviWebhookShape | null = null;
   try {
     body = JSON.parse(raw) as WooviWebhookShape;
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
+
+  // Teste de registro da plataforma Woovi: não tem assinatura nem charge/correlationID.
+  // Resposta exigida pela doc: 200 com corpo vazio.
+  if (body?.event && !body?.charge && !body?.correlationID && !body?.pix) {
+    return new NextResponse(null, { status: 200 });
+  }
+
+  const valid =
+    (!!signature && (await verifyWooviWebhook(raw, signature))) ||
+    (!!devToken && testToken === devToken);
+  if (!valid) return NextResponse.json({ ok: false, message: 'Assinatura inválida.' }, { status: 401 });
 
   const event = String(body?.event ?? '');
   if (!CONFIRM_EVENTS.some((e) => event.toUpperCase().includes(e))) {

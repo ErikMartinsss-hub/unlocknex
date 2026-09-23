@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { createAsaasCustomer, createAsaasPixCharge, getAsaasPixQr } from '@/lib/asaas';
+import { createWooviCharge } from '@/lib/woovi';
 
 export const runtime = 'nodejs';
 
@@ -21,54 +22,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'Valor inválido (mínimo R$ 5,00).' }, { status: 400 });
   }
   const value = Math.round(amount * 100) / 100;
+  const valueCents = Math.round(value * 100);
 
   const db = getAdminDb();
-  const userRef = db.doc(`users/${claims.uid}`);
-  const userSnap = await userRef.get().catch(() => null);
+  const userSnap = await db.doc(`users/${claims.uid}`).get().catch(() => null);
   if (!userSnap?.exists) return NextResponse.json({ ok: false, message: 'Usuário não encontrado.' }, { status: 404 });
-  const user = userSnap.data() as {
-    name?: string;
-    email?: string;
-    cpf?: string;
-    asaasCustomerId?: string;
-  };
+  const user = userSnap.data() as { name?: string; email?: string; cpf?: string };
 
-  let customerId = user.asaasCustomerId ?? null;
-  if (!customerId) {
-    customerId = await createAsaasCustomer({
-      name: user.name ?? 'Cliente UnlockNex',
-      email: user.email ?? claims.email ?? 'cliente@unlocknex.app',
-      cpfCnpj: user.cpf ?? process.env.ASAAS_TEST_CPF ?? '00000000000',
-    });
-    await userRef.set({ ...user, asaasCustomerId: customerId }, { merge: true });
-  }
+  const correlationId = `unl-${claims.uid.slice(0, 8)}-${randomUUID()}`;
 
   try {
-    const payment = await createAsaasPixCharge({
-      customerId,
-      value,
-      externalReference: `unlocknex|${claims.uid}`,
-      description: 'Recarga de saldo UnlockNex',
+    const charge = await createWooviCharge({
+      correlationID: correlationId,
+      valueCents,
+      comment: 'Recarga de saldo UnlockNex',
+      customer: {
+        name: user.name ?? 'Cliente UnlockNex',
+        email: user.email ?? claims.email ?? 'cliente@unlocknex.app',
+      },
     });
-    const qr = await getAsaasPixQr(payment.id);
-    const expiresAt = new Date(qr.expirationDate).getTime();
-    await db.doc(`payments/${payment.id}`).set({
+    const expiresAt = new Date(charge.expiresDate).getTime();
+    await db.doc(`payments/${correlationId}`).set({
       userId: claims.uid,
       amount: value,
       status: 'pending',
-      asaasId: payment.id,
-      invoiceUrl: payment.invoiceUrl,
-      qrCode: qr.encodedImage,
-      copiaECola: qr.payload,
+      provider: 'woovi',
+      correlationId,
+      brCode: charge.brCode,
+      qrCodeImage: charge.qrCodeImage,
       expiresAt,
       createdAt: Date.now(),
     });
     return NextResponse.json({
       ok: true,
-      paymentId: payment.id,
-      qrCode: qr.encodedImage,
-      copiaECola: qr.payload,
-      invoiceUrl: payment.invoiceUrl,
+      paymentId: correlationId,
+      qrCode: charge.qrCodeImage,
+      copiaECola: charge.brCode,
       amount: value,
     });
   } catch (err) {

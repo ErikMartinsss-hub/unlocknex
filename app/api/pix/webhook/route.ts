@@ -1,23 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { verifyWooviWebhook } from '@/lib/woovi';
+import { getMpPayment, verifyMpWebhook } from '@/lib/mercadopago';
 
 export const runtime = 'nodejs';
-
-const CONFIRM_EVENTS = ['TRANSACTION_RECEIVED', 'CHARGE_COMPLETED'];
-
-type WooviWebhookShape = {
-  event?: string | null;
-  correlationID?: string | null;
-  charge?: { correlationID?: string | null; status?: string | null; value?: number | null } | null;
-  pix?: { value?: number | null } | null;
-};
 
 export async function POST(req: NextRequest) {
   try {
     return await handleWebhook(req);
   } catch (err) {
-    console.error('webhook erro:', err);
+    console.error('webhook mp erro:', err);
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
       { status: 500 }
@@ -26,78 +17,67 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleWebhook(req: NextRequest) {
-  const raw = await req.text();
-  const signature = req.headers.get('x-webhook-signature');
+  await req.text();
+  const body = (await req.json().catch(() => null)) as {
+    type?: string | null;
+    data?: { id?: string | number } | null;
+  } | null;
+
+  const isPayment = String(body?.type ?? '') === 'payment' || req.nextUrl.searchParams.get('type') === 'payment';
+  if (!isPayment) return NextResponse.json({ ok: true });
+
+  const dataId =
+    req.nextUrl.searchParams.get('data.id') ??
+    String(body?.data?.id ?? '');
+
+  const devToken = process.env.MERCADO_PAGO_WEBHOOK_TOKEN ?? '';
   const testToken = req.headers.get('x-test-token');
-  const devToken = process.env.WOOVI_WEBHOOK_TOKEN ?? '';
 
-  let body: WooviWebhookShape | null = null;
-  try {
-    body = JSON.parse(raw) as WooviWebhookShape;
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 400 });
-  }
-
-  // Teste de registro da plataforma Woovi: não tem assinatura nem charge/correlationID.
-  // Resposta exigida pela doc: 200 com corpo vazio.
-  if (body?.event && !body?.charge && !body?.correlationID && !body?.pix) {
-    return new NextResponse(null, { status: 200 });
-  }
+  if (!dataId) return NextResponse.json({ ok: false }, { status: 400 });
 
   const valid =
-    (!!signature && (await verifyWooviWebhook(raw, signature))) ||
-    (!!devToken && testToken === devToken);
+    (!!devToken && testToken === devToken) || validateSignature(req, dataId);
   if (!valid) return NextResponse.json({ ok: false, message: 'Assinatura inválida.' }, { status: 401 });
 
-  const event = String(body?.event ?? '');
-  if (!CONFIRM_EVENTS.some((e) => event.toUpperCase().includes(e))) {
-    return NextResponse.json({ ok: true });
-  }
+  const payment = await getMpPayment(dataId);
+  const approved = payment.status === 'approved' && payment.status_detail === 'accredited';
+  if (!approved) return NextResponse.json({ ok: true });
 
-  const correlationId = body?.charge?.correlationID ?? body?.correlationID ?? null;
+  const correlationId = payment.external_reference ?? null;
   if (!correlationId) return NextResponse.json({ ok: false }, { status: 400 });
 
   const db = getAdminDb();
   const payRef = db.doc(`payments/${correlationId}`);
   const paySnap = await payRef.get().catch(() => null);
+  if (!paySnap?.exists) return NextResponse.json({ ok: false, message: 'Cobrança não encontrada.' }, { status: 400 });
 
-  let uid: string;
-  let amount: number;
-
-  if (paySnap?.exists) {
-    const data = paySnap.data() as { userId?: string; amount?: number; status?: string };
-    if (data.status === 'confirmed') return NextResponse.json({ ok: true });
-    if (!data.userId) return NextResponse.json({ ok: false }, { status: 400 });
-    uid = data.userId;
-    amount = Number(data.amount ?? 0);
-  } else {
-    return NextResponse.json({ ok: false, message: 'Cobrança não encontrada.' }, { status: 400 });
-  }
-
-  if (!uid || !amount) return NextResponse.json({ ok: false }, { status: 400 });
+  const data = paySnap.data() as { userId?: string; amount?: number; status?: string };
+  if (data.status === 'confirmed') return NextResponse.json({ ok: true });
+  if (!data.userId || !data.amount) return NextResponse.json({ ok: false }, { status: 400 });
 
   try {
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(payRef);
       if (snap.exists && snap.data()?.status === 'confirmed') return;
-      const userSnap = await tx.get(db.doc(`users/${uid}`));
+      const userSnap = await tx.get(db.doc(`users/${data.userId!}`));
       if (!userSnap.exists) throw new Error('user-missing');
       const balance = Number(userSnap.data()?.balance ?? 0);
-      tx.set(payRef, { status: 'confirmed', confirmedAt: Date.now(), event }, { merge: true });
-      tx.update(db.doc(`users/${uid}`), { balance: balance + amount });
+      tx.set(payRef, { status: 'confirmed', confirmedAt: Date.now() }, { merge: true });
+      tx.update(db.doc(`users/${data.userId!}`), { balance: balance + data.amount! });
       tx.set(db.collection('transactions').doc(), {
-        userId: uid,
+        userId: data.userId,
         type: 'deposit',
-        amount,
+        amount: data.amount,
         paymentMethod: 'pix',
-        provider: 'woovi',
+        provider: 'mercadopago',
         reference: correlationId,
+        mpPaymentId: payment.id,
         createdAt: Date.now(),
-        by: 'woovi-webhook',
+        by: 'mp-webhook',
       });
     });
   } catch (err) {
-    console.error('webhook transação:', err);
+    console.error('webhook mp transação:', err);
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
       { status: 500 }
@@ -105,4 +85,15 @@ async function handleWebhook(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+function validateSignature(req: NextRequest, dataId: string): boolean {
+  const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET ?? '';
+  if (!secret) return false;
+  const sig = req.headers.get('x-signature') ?? '';
+  const ts = /(?:^|,)ts=([0-9]+)/.exec(sig)?.[1] ?? '';
+  const v1 = /(?:^|,)v1=([0-9a-fA-F]+)/.exec(sig)?.[1] ?? '';
+  const requestId = req.headers.get('x-request-id');
+  if (!v1) return false;
+  return verifyMpWebhook({ secret, ts, hash: v1, requestId, dataId });
 }

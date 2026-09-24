@@ -17,7 +17,6 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleWebhook(req: NextRequest) {
-  await req.text();
   const body = (await req.json().catch(() => null)) as {
     type?: string | null;
     data?: { id?: string | number } | null;

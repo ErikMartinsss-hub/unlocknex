@@ -38,7 +38,13 @@ async function handleWebhook(req: NextRequest) {
     (!!devToken && testToken === devToken) || validateSignature(req, dataId);
   if (!valid) return NextResponse.json({ ok: false, message: 'Assinatura inválida.' }, { status: 401 });
 
-  const payment = await getMpPayment(dataId);
+  let payment;
+  try {
+    payment = await getMpPayment(dataId);
+  } catch (err) {
+    console.warn('webhook mp: pagamento não consultável, ignorando.', err instanceof Error ? err.message : err);
+    return NextResponse.json({ ok: true, ignored: true });
+  }
   const approved = payment.status === 'approved' && payment.status_detail === 'accredited';
   if (!approved) return NextResponse.json({ ok: true });
 

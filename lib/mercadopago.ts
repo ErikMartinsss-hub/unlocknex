@@ -52,7 +52,6 @@ export async function createMpPixPayment(data: {
     payer: { email: data.payerEmail },
     external_reference: data.externalReference,
     notification_url: `${data.notificationUrl}?source_news=webhooks`,
-    point_of_interaction: { type: 'PIX' },
   };
   const res = await mpCall<MpPayment>('/v1/payments', {
     method: 'POST',

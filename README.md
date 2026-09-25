@@ -47,6 +47,21 @@ No **Vercel**, configure as mesmas variáveis (Project → Settings → Environm
 > O webhook é único para todos os meios (PIX, cartão e boleto) — o método de pagamento é
 > registrado na transação (`paymentMethod: 'pix' | 'card' | 'boleto'`).
 
+### Diagnóstico (`GET /api/mp/status`)
+
+Endpoint público de verificação da integração — retorna **apenas flags de configuração**
+(se cada variável está definida) e o estado do token, **sem expor os valores**:
+
+```bash
+curl https://seu-dominio/api/mp/status
+# {
+#   "ok": true,
+#   "env": { "MERCADO_PAGO_ACCESS_TOKEN": true, "MERCADO_PAGO_CLIENT_SECRET": false, ... },
+#   "token": { "ok": true, "source": "client_credentials (oauth/cache)", "masked": "APP_USR…6189" },
+#   "mp": { "ok": true, "accountId": 194646189 }
+# }
+```
+
 ### Fluxo
 
 1. Usuário escolhe o valor e o método (PIX / Cartão / Boleto) em **Perfil → Adicionar créditos**.

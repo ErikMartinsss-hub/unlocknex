@@ -39,7 +39,7 @@ No **Vercel**, configure as mesmas variáveis (Project → Settings → Environm
 ### Webhook (crédito automático de saldo)
 
 1. No painel do Mercado Pago (Suas integrações → sua aplicação → **Webhooks**), cadastre:
-   `https://seu-dominio/api/pix/webhook`
+   `https://www.unlocknex.com.br/api/pix/webhook`
 2. Copie o **signing secret** da aplicação e coloque em `MERCADO_PAGO_WEBHOOK_SECRET`.
 3. O webhook valida a assinatura (`x-signature`), confere o pagamento aprovado e credita o saldo
    na conta do usuário via transação no Firestore (idempotente).

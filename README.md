@@ -68,10 +68,15 @@ curl https://seu-dominio/api/mp/status
 # {
 #   "ok": true,
 #   "env": { "MERCADO_PAGO_ACCESS_TOKEN": true, "MERCADO_PAGO_CLIENT_SECRET": false, ... },
+#   "oauth": { "configured": true, "ok": true, "error": null },   ← testa o oauth de verdade
 #   "token": { "ok": true, "source": "client_credentials (oauth/cache)", "masked": "APP_USR…6189" },
 #   "mp": { "ok": true, "accountId": 194646189 }
 # }
 ```
+
+> Se `oauth.ok` for `false`, o `MERCADO_PAGO_CLIENT_SECRET` está inválido (ex.: placeholder
+> `<seu Client Secret>`) e o app usa o token estático como fallback — confira o valor na Vercel
+> e faça um **Redeploy** (ou um push novo dispara o build automaticamente).
 
 ### Fluxo
 

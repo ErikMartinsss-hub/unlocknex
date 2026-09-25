@@ -33,6 +33,15 @@ async function stripeApi<T>(path: string, form: Record<string, string>): Promise
   return json as T;
 }
 
+export type StripeCustomer = { id: string };
+
+export async function createStripeCustomer(email: string): Promise<StripeCustomer> {
+  return stripeApi<StripeCustomer>('/v1/customers', {
+    email,
+    description: 'Cliente UnlockNex (recarga de saldo)',
+  });
+}
+
 export type StripeSession = {
   id: string;
   url: string | null;
@@ -47,13 +56,24 @@ export async function createStripeSession(data: {
   userId: string;
   successUrl: string;
   cancelUrl: string;
+  customer?: string | null;
 }): Promise<StripeSession> {
   const unitAmount = Math.round(data.amount * 100); // centavos
   const form: Record<string, string> = {
     mode: 'payment',
+    ui_mode: 'hosted_page',
     locale: 'pt-BR',
     success_url: data.successUrl,
     cancel_url: data.cancelUrl,
+    // Parâmetros configurados (Checkout Studio / fixed_by_ui)
+    billing_address_collection: 'auto',
+    'phone_number_collection[enabled]': 'true',
+    'automatic_tax[enabled]': 'false',
+    allow_promotion_codes: 'false',
+    submit_type: 'auto',
+    integration_identifier: 'hosted_web_0001',
+    origin_context: 'web',
+    // Método de pagamento + rastreio (negócio)
     'payment_method_types[0]': data.method,
     client_reference_id: data.correlationId,
     customer_email: data.email,
@@ -65,6 +85,10 @@ export async function createStripeSession(data: {
     'line_items[0][price_data][unit_amount]': String(unitAmount),
     'line_items[0][price_data][product_data][name]': 'Recarga de saldo UnlockNex',
   };
+  if (data.customer) {
+    form.customer = data.customer;
+    form['saved_payment_method_options[payment_method_save]'] = 'enabled';
+  }
   return stripeApi<StripeSession>('/v1/checkout/sessions', form);
 }
 

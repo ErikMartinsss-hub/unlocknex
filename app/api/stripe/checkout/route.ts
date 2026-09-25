@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { createStripeSession, type StripeMethod } from '@/lib/stripe';
+import { createStripeCustomer, createStripeSession, type StripeMethod } from '@/lib/stripe';
 
 export const runtime = 'nodejs';
 
@@ -36,12 +36,19 @@ export async function POST(req: NextRequest) {
   if (!userSnap?.exists) {
     return NextResponse.json({ ok: false, message: 'Usuário não encontrado.' }, { status: 404 });
   }
-  const email = (userSnap.data() as { email?: string }).email ?? 'cliente@unlocknex.com.br';
+  const userData = userSnap.data() as { email?: string; stripeCustomerId?: string };
+  const email = userData.email ?? 'cliente@unlocknex.com.br';
 
   const correlationId = `unl-${uid.slice(0, 8)}-${randomUUID()}`;
   const siteUrl = (process.env.SITE_URL ?? 'https://www.unlocknex.com.br').replace(/\/+$/, '');
 
   try {
+    let customer = userData.stripeCustomerId ?? null;
+    if (!customer) {
+      customer = (await createStripeCustomer(email)).id;
+      await db.doc(`users/${uid}`).set({ stripeCustomerId: customer }, { merge: true });
+    }
+
     const session = await createStripeSession({
       method,
       amount: value,
@@ -50,6 +57,7 @@ export async function POST(req: NextRequest) {
       userId: uid,
       successUrl: `${siteUrl}/perfil?status=approved&method=${method}`,
       cancelUrl: `${siteUrl}/perfil?status=canceled&method=${method}`,
+      customer,
     });
     if (!session.url) {
       throw new Error('Stripe: resposta sem URL de checkout.');

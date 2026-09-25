@@ -63,6 +63,20 @@ async function writeShared(token: StoredToken): Promise<void> {
 }
 
 /**
+ * Testa se as credenciais client_credentials realmente geram um token.
+ * Não expõe o token gerado — apenas ok/erro (para diagnóstico).
+ */
+export async function testMpOauth(): Promise<{ ok: boolean; error?: string }> {
+  if (!CLIENT_ID || !CLIENT_SECRET) return { ok: false, error: 'CLIENT_ID/CLIENT_SECRET ausentes' };
+  try {
+    await requestToken();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
  * Retorna um Access Token válido do Mercado Pago.
  *
  * Ordem de preferência:

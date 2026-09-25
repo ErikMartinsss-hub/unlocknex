@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getMpAccessToken } from '@/lib/mercadopago-token';
+import { getMpAccessToken, testMpOauth } from '@/lib/mercadopago-token';
 
 export const runtime = 'nodejs';
 
@@ -19,13 +19,29 @@ export async function GET() {
   const env: Record<string, boolean> = {};
   for (const name of CHECK_VARS) env[name] = Boolean(process.env[name]);
 
+  // Testa de VERDADE se o oauth (client_credentials) gera token — não só se a env existe.
+  const oauthConfigured = Boolean(process.env.MERCADO_PAGO_CLIENT_SECRET);
+  let oauth: { configured: boolean; ok: boolean; error?: string | null } = {
+    configured: oauthConfigured,
+    ok: false,
+    error: 'não configurado',
+  };
+  if (oauthConfigured) {
+    const test = await testMpOauth();
+    oauth = { configured: true, ok: test.ok, error: test.ok ? null : (test.error ?? 'oauth falhou') };
+  }
+
   // Consegue obter/renovar o Access Token?
   let token: { ok: boolean; source?: string; error?: string; masked?: string } = { ok: false };
   try {
     const accessToken = await getMpAccessToken();
     token = {
       ok: Boolean(accessToken),
-      source: process.env.MERCADO_PAGO_CLIENT_SECRET ? 'client_credentials (oauth/cache)' : 'estático (ACCESS_TOKEN)',
+      source: oauth.ok
+        ? 'client_credentials (oauth/cache)'
+        : oauthConfigured
+          ? 'estático (fallback após falha do oauth)'
+          : 'estático (ACCESS_TOKEN)',
       masked: accessToken ? `${accessToken.slice(0, 8)}…${accessToken.slice(-4)}` : undefined,
     };
   } catch (err) {
@@ -54,5 +70,5 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ ok: true, env, token, mp });
+  return NextResponse.json({ ok: true, env, token, oauth, mp });
 }

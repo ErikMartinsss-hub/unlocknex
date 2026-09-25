@@ -1,10 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { getMpAccessToken } from '@/lib/mercadopago-token';
 
 const BASE_URL = (process.env.MERCADO_PAGO_BASE_URL ?? 'https://api.mercadopago.com').replace(/\/+$/, '');
-const ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN ?? '';
 
 async function mpCall<T>(path: string, init?: { method?: string; body?: string; headers?: Record<string, string> }): Promise<T> {
-  if (!ACCESS_TOKEN) throw new Error('Mercado Pago não configurado (MERCADO_PAGO_ACCESS_TOKEN ausente).');
+  const accessToken = await getMpAccessToken();
+  if (!accessToken) throw new Error('Mercado Pago não configurado (Access Token ausente).');
   const res = await fetch(`${BASE_URL}${path}`, {
     method: init?.method ?? 'GET',
     ...(init?.body ? { body: init.body } : {}),
@@ -12,7 +13,7 @@ async function mpCall<T>(path: string, init?: { method?: string; body?: string; 
     headers: {
       accept: 'application/json',
       'content-type': 'application/json',
-      authorization: `Bearer ${ACCESS_TOKEN}`,
+      authorization: `Bearer ${accessToken}`,
       ...(init?.headers ?? {}),
     },
   });

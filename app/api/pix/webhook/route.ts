@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { getMpPayment, verifyMpWebhook } from '@/lib/mercadopago';
+import { confirmAndCredit } from '@/lib/mp-confirm';
 
 export const runtime = 'nodejs';
 
@@ -51,43 +52,13 @@ async function handleWebhook(req: NextRequest) {
   const correlationId = payment.external_reference ?? null;
   if (!correlationId) return NextResponse.json({ ok: false }, { status: 400 });
 
-  const db = getAdminDb();
-  const payRef = db.doc(`payments/${correlationId}`);
-  const paySnap = await payRef.get().catch(() => null);
-  if (!paySnap?.exists) return NextResponse.json({ ok: false, message: 'Cobrança não encontrada.' }, { status: 400 });
-
-  const data = paySnap.data() as { userId?: string; amount?: number; status?: string; method?: string };
-  if (data.status === 'confirmed') return NextResponse.json({ ok: true });
-  if (!data.userId || !data.amount) return NextResponse.json({ ok: false }, { status: 400 });
-  const method = data.method === 'card' || data.method === 'boleto' ? data.method : 'pix';
-
-  try {
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(payRef);
-      if (snap.exists && snap.data()?.status === 'confirmed') return;
-      const userSnap = await tx.get(db.doc(`users/${data.userId!}`));
-      if (!userSnap.exists) throw new Error('user-missing');
-      const balance = Number(userSnap.data()?.balance ?? 0);
-      tx.set(payRef, { status: 'confirmed', confirmedAt: Date.now() }, { merge: true });
-      tx.update(db.doc(`users/${data.userId!}`), { balance: balance + data.amount! });
-      tx.set(db.collection('transactions').doc(), {
-        userId: data.userId,
-        type: 'deposit',
-        amount: data.amount,
-        paymentMethod: method,
-        provider: 'mercadopago',
-        reference: correlationId,
-        mpPaymentId: payment.id,
-        createdAt: Date.now(),
-        by: 'mp-webhook',
-      });
-    });
-  } catch (err) {
-    console.error('webhook mp transação:', err);
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
-    );
+  const result = await confirmAndCredit(correlationId, dataId, payment);
+  if (!result.ok) {
+    if (result.error === 'not-found' || result.error === 'missing-data') {
+      return NextResponse.json({ ok: false }, { status: 400 });
+    }
+    if (result.status && result.status !== 'approved') return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: false, error: result.error ?? 'erro' }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

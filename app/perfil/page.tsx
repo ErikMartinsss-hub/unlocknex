@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { RequireAuth } from '@/components/Guard';
 import { AppShell } from '@/components/AppShell';
@@ -25,6 +25,68 @@ function Perfil() {
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [copiaECola, setCopiaECola] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const didSweep = useRef(false);
+
+  // Reconciliação automática: se algum PIX foi pago mas o webhook não creditou
+  // (webhook perdido/rejeitado), credita na hora que o Perfil abrir.
+  useEffect(() => {
+    if (!user || didSweep.current) return;
+    didSweep.current = true;
+    (async () => {
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch('/api/pix/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: '{}',
+        });
+        const data = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          credited?: string[];
+          alreadyConfirmed?: string[];
+        } | null;
+        if (res.ok && data?.ok && (data.credited?.length || data.alreadyConfirmed?.length)) {
+          refreshProfile();
+          push('Pagamento confirmado! Créditos adicionados ao saldo.', 'ok');
+        }
+      } catch {
+        // silencioso — o botão "Já paguei" cobre se falhar aqui
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const checkPayment = async () => {
+    setChecking(true);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/pix/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: '{}',
+      });
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        credited?: string[];
+        alreadyConfirmed?: string[];
+        error?: string | null;
+        message?: string;
+      } | null;
+      if (res.ok && data?.ok && (data.credited?.length || data.alreadyConfirmed?.length)) {
+        refreshProfile();
+        push('Pagamento confirmado! Créditos adicionados ao saldo.', 'ok');
+      } else if (res.ok && data?.ok) {
+        push(data.error ?? 'Pagamento ainda não confirmado pelo Mercado Pago.', 'err');
+      } else {
+        push(data?.message ?? 'Não foi possível verificar o pagamento.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setChecking(false);
+    }
+  };
 
   useEffect(() => {
     if (!paymentId) return;
@@ -237,6 +299,9 @@ function Perfil() {
                   <Icon name="clock" className="h-3.5 w-3.5" />
                   Aguardando pagamento…
                 </p>
+                <button onClick={checkPayment} disabled={checking} className="btn-neon w-full py-2 text-xs disabled:opacity-50">
+                  {checking ? 'Verificando…' : 'Já paguei ✓'}
+                </button>
               </div>
             )}
           </div>

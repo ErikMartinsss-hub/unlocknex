@@ -17,6 +17,9 @@ Integração de pagamentos **UnlockNex via Mercado Pago** (substituiu o Stripe �
 - OAuth `client_credentials` **validado** para a conta nova — auto-refresh do token funcionará na Vercel.
 - **Cache de token no Firestore (`config/mp-token`) agora valida o `clientId`** — se as credenciais
   mudarem (ex.: troca de conta MP), o token velho é ignorado automaticamente e o novo é gerado na hora.
+- **Reconciliação de crédito adicionada** (`POST /api/pix/status` + função `lib/mp-confirm.ts`):
+  o Perfil varre cobranças pendentes do usuário, consulta o status real no MP e credita
+  pagamentos aprovados mesmo se o webhook falhar (idempotente). Botão "Já paguei ✓" na tela do PIX.
 
 ## ⏳ Pendências (ações no painel — não dá pra fazer por código)
 

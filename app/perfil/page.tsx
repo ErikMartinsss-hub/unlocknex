@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { RequireAuth } from '@/components/Guard';
 import { AppShell } from '@/components/AppShell';
 import { useAuth } from '@/components/AuthProvider';
@@ -22,6 +22,31 @@ function Perfil() {
   const [method, setMethod] = useState<'pix' | 'card' | 'boleto'>('pix');
   const [charging, setCharging] = useState(false);
   const [chargeError, setChargeError] = useState<string | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [copiaECola, setCopiaECola] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!paymentId) return;
+    const unsub = onSnapshot(
+      doc(getDbFirebase(), 'payments', paymentId),
+      (snap) => {
+        const d = snap.data();
+        if (d?.status === 'confirmed') {
+          setPaymentId(null);
+          setQrCode(null);
+          setCopiaECola(null);
+          setShowAdd(false);
+          setAmount('');
+          refreshProfile();
+          push('PIX confirmado! Créditos adicionados ao saldo.', 'ok');
+        }
+      },
+      () => {}
+    );
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentId]);
 
   const save = async () => {
     if (!name.trim()) return;
@@ -34,23 +59,55 @@ function Perfil() {
     }
   };
 
-  const chargeStripe = async (value: number, payMethod: 'pix' | 'card' | 'boleto') => {
+  const chargePix = async (value: number) => {
     setCharging(true);
     setChargeError(null);
     try {
       const idToken = await user!.getIdToken();
-      const res = await fetch('/api/stripe/checkout', {
+      const res = await fetch('/api/pix/charge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ amount: value }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        paymentId?: string;
+        qrCode?: string;
+        copiaECola?: string;
+        message?: string;
+      };
+      if (res.ok && data.ok && data.paymentId) {
+        setPaymentId(data.paymentId);
+        setQrCode(data.qrCode ?? null);
+        setCopiaECola(data.copiaECola ?? null);
+        push('Cobrança PIX criada. Escaneie o QR ou copie o código.', 'ok');
+      } else {
+        setChargeError(data.message ?? 'Não foi possível gerar a cobrança.');
+      }
+    } catch {
+      setChargeError('Falha na comunicação. Tente novamente.');
+    } finally {
+      setCharging(false);
+    }
+  };
+
+  const chargeCheckout = async (value: number, payMethod: 'card' | 'boleto') => {
+    setCharging(true);
+    setChargeError(null);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/mp/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ amount: value, method: payMethod }),
       });
       const data = (await res.json().catch(() => ({ ok: false }))) as {
         ok?: boolean;
-        url?: string;
+        initPoint?: string;
         message?: string;
       };
-      if (res.ok && data.ok && data.url) {
-        window.location.href = data.url;
+      if (res.ok && data.ok && data.initPoint) {
+        window.location.href = data.initPoint;
       } else {
         setChargeError(data.message ?? 'Não foi possível iniciar o pagamento.');
       }
@@ -67,7 +124,18 @@ function Perfil() {
       setChargeError('Valor mínimo de R$ 5,00.');
       return;
     }
-    return chargeStripe(value, method);
+    if (method === 'pix') return chargePix(value);
+    return chargeCheckout(value, method);
+  };
+
+  const copyPix = async () => {
+    if (!copiaECola) return;
+    try {
+      await navigator.clipboard.writeText(copiaECola);
+      push('Código PIX copiado.', 'ok');
+    } catch {
+      push('Não foi possível copiar.', 'err');
+    }
   };
 
   return (
@@ -105,7 +173,7 @@ function Perfil() {
               <Icon name="plus" className="h-4 w-4" />
               Adicionar créditos
             </button>
-            {showAdd && (
+            {showAdd && !qrCode && (
               <div className="mt-3">
                 <div className="grid grid-cols-3 gap-2">
                   {(
@@ -138,17 +206,37 @@ function Perfil() {
                     className="input-dark"
                   />
                   <button onClick={charge} disabled={charging} className="btn-neon shrink-0 px-4 py-2 text-sm disabled:opacity-50">
-                    {charging ? 'Redirecionando…' : 'OK'}
+                    {charging ? (method === 'pix' ? 'Gerando…' : 'Ir pagar…') : 'OK'}
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-zinc-600">
                   {method === 'pix'
-                    ? 'Recarga via PIX (mínimo R$ 5,00). Você será redirecionado para o pagamento; o saldo entra automaticamente após a confirmação.'
+                    ? 'Recarga via PIX (mínimo R$ 5,00). O saldo entra automaticamente após a confirmação.'
                     : method === 'card'
-                      ? 'Pagamento com cartão. Você será redirecionado para concluir com segurança.'
-                      : 'Boleto bancário. Você será redirecionado para gerar o boleto.'}
+                      ? 'Pagamento com cartão via Mercado Pago. Você será redirecionado para concluir.'
+                      : 'Boleto bancário via Mercado Pago. Você será redirecionado para gerar o boleto.'}
                 </p>
                 {chargeError && <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{chargeError}</p>}
+              </div>
+            )}
+
+            {qrCode && (
+              <div className="mt-3 space-y-3">
+                <div className="mx-auto w-48 rounded-xl bg-white p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qrCode} alt="QR Code PIX" className="h-full w-full" />
+                </div>
+                <p className="text-center text-xs text-zinc-500">Escaneie o QR Code ou copie o código abaixo.</p>
+                <div className="flex items-center gap-2">
+                  <input readOnly value={copiaECola ?? ''} className="input-dark flex-1 truncate font-mono text-xs" />
+                  <button onClick={copyPix} className="btn-neon shrink-0 px-3 py-2 text-xs">
+                    Copiar
+                  </button>
+                </div>
+                <p className="flex items-center justify-center gap-1.5 text-xs text-neon-400">
+                  <Icon name="clock" className="h-3.5 w-3.5" />
+                  Aguardando pagamento…
+                </p>
               </div>
             )}
           </div>

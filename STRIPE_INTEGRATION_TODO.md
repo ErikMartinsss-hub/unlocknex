@@ -49,22 +49,19 @@ Nenhum valor é placeholder. Os parâmetros `sample_only` já estão com valores
 
 | Variável | Valor | Status |
 |----------|-------|--------|
-| `STRIPE_SECRET_KEY` | `sk_test_…` / `sk_live_…` | ⚠️ Trocar para **live** antes de receber de verdade |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_…` | ⚠️ Criar endpoint **live** (o atual é de teste) |
+| `STRIPE_SECRET_KEY` | `rk_live_…` (restrita: Checkout + Webhooks) | ✅ Chave live obtida e **validada** (sessões card/boleto criadas em livemode) — falta trocar na Vercel |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_kMKHAxwloY95zpnfyLUOTeuxjbCluBWF` | ✅ Webhook **live** já criado via API — falta trocar na Vercel |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_…` | Opcional (Checkout hospedado não usa) |
 
 Chaves em: https://dashboard.stripe.com/apikeys · Webhooks: https://dashboard.stripe.com/workbench/webhooks
 
 ## Setup e próximos passos
 
-1. **Ativar conta Stripe** (produção): botão "Alternar para conta de produção" → completar
-   ativação (dados da empresa, **conta bancária**, verificação). Sem isso, pagamentos live são bloqueados.
-2. **Chaves live**: Dashboard → Developers → API keys → **Live data** → copiar `sk_live_…`.
-   Trocar `STRIPE_SECRET_KEY` na Vercel (Production) e dar redeploy/push.
-3. **Webhook live**: Developers → Webhooks → Add endpoint →
-   `https://www.unlocknex.com.br/api/stripe/webhook` com eventos
-   `checkout.session.completed` + `checkout.session.async_payment_succeeded` → copiar `whsec_live_…`
-   em `STRIPE_WEBHOOK_SECRET` (Vercel).
+1. ~~Ativar conta Stripe (produção)~~ ✅ Feito — sessões live criadas sem erro (conta ativa).
+2. ~~Chaves live~~ ✅ `rk_live_…` validada; webhook live `whsec_kMKHAxwloY95zpnfyLUOTeuxjbCluBWF` criado.
+3. **Na Vercel** (Production → Settings → Environment Variables): trocar
+   `STRIPE_SECRET_KEY` → `rk_live_…` e `STRIPE_WEBHOOK_SECRET` → `whsec_kMKHAxwloY95zpnfyLUOTeuxjbCluBWF`.
+   Depois: Redeploy (ou push). Conferir em `GET /api/stripe/status` → `mode: "live"`.
 4. **Cartões de teste** (modo teste): `4242 4242 4242 4242` (Visa), `4000 0027 6000 3184` (falha 3DS),
    `4000 0000 0000 0002` (recusado). Em live, usar cartão real (pago de verdade; reembolsável).
 5. **Fluxo**: Perfil → Adicionar créditos → método → `/api/stripe/checkout` cria a sessão →
@@ -75,8 +72,8 @@ Chaves em: https://dashboard.stripe.com/apikeys · Webhooks: https://dashboard.s
 
 - **PIX**: não ativado na conta Stripe (nem em teste) — no Brasil é **por convite** (EBANX).
   Ativar em Developers → Payment methods. Até lá, o checkout PIX retorna mensagem amigável em pt-BR.
-- **Webhook de teste já criado** via API (`whsec_r9diM7kb3RebnmPntZ5NMosldAlbrVx0`, livemode false) —
-  para live, criar novo endpoint (secret diferente).
+- **Webhooks**: endpoint vivo de **produção** criado via API (`whsec_kMKHAxwloY95zpnfyLUOTeuxjbCluBWF`) —
+  o de teste (`whsec_r9diM7kb3RebnmPntZ5NMosldAlbrVx0`) pode ser removido no painel se preferir.
 
 ## Recursos
 

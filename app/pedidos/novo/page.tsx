@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, runTransaction, collection, updateDoc, type DocumentReference } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { RequireAuth } from '@/components/Guard';
 import { AppShell } from '@/components/AppShell';
 import { useAuth } from '@/components/AuthProvider';
@@ -43,7 +43,6 @@ function NovoPedido() {
     }
     setBusy(true);
     setError(null);
-    let orderRef: DocumentReference | null = null;
     const isAuto = svc.provider === 'auto';
     const fieldKey = svc.apiField ?? '';
     const fields: Record<string, string | number> = {};
@@ -62,62 +61,49 @@ function NovoPedido() {
     }
     try {
       const db = getDbFirebase();
-      const uid = user!.uid;
-      await runTransaction(db, async (tx) => {
-        const userRef = doc(db, 'users', uid);
-        const snap = await tx.get(userRef);
-        const current = (snap.data()?.balance as number | undefined) ?? 0;
-        if (current < svc.price) throw new Error('Saldo insuficiente');
-        tx.update(userRef, { balance: current - svc.price });
-        orderRef = doc(collection(db, 'orders'));
-        tx.set(orderRef, {
-          userId: uid,
-          serviceId: svc.id,
-          deviceIdentifier: deviceLabel,
-          deviceModel: model.trim() || null,
-          status: 'processando',
-          cost: svc.price,
-          provider: svc.provider ?? 'manual',
-          createdAt: Date.now(),
-        });
-        tx.set(doc(collection(db, 'transactions')), {
-          userId: uid,
-          amount: -svc.price,
-          type: 'charge',
-          status: 'concluido',
-          paymentMethod: 'saldo',
-          reference: svc.slug,
-          createdAt: Date.now(),
-        });
+      const idToken = await user!.getIdToken();
+      const resCreate = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ serviceId: svc.id, deviceIdentifier: deviceLabel, deviceModel: model.trim() || null }),
       });
+      const created = (await resCreate.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        orderId?: string;
+        message?: string;
+      };
+      if (!resCreate.ok || !created.ok || !created.orderId) {
+        setError(created.message ?? 'Não foi possível criar o pedido. Tente novamente.');
+        return;
+      }
+      const orderId = created.orderId;
       await refreshProfile();
 
       if (svc.provider === 'auto' && svc.productUuid) {
         try {
-          const idToken = await user!.getIdToken();
           const res = await fetch('/api/heartunlocks/order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-            body: JSON.stringify({ orderId: orderRef!.id, fields }),
+            body: JSON.stringify({ orderId, fields }),
           });
           const data = (await res.json().catch(() => ({ ok: false }))) as { ok?: boolean; orderUuid?: string; message?: string };
           if (res.ok && data.ok) {
-            await updateDoc(orderRef!, { apiStatus: 'submetido', apiOrderId: data.orderUuid });
+            await updateDoc(doc(db, 'orders', orderId), { apiStatus: 'submetido', apiOrderId: data.orderUuid });
             push('Pedido enviado! Processamento automático iniciado.', 'ok');
           } else {
-            await updateDoc(orderRef!, { status: 'pendente', providerError: data.message ?? 'Falha no provedor externo.' });
+            await updateDoc(doc(db, 'orders', orderId), { status: 'pendente', providerError: data.message ?? 'Falha no provedor externo.' });
             push(`Pedido criado, mas o provedor recusou (${data.message ?? 'erro'}). Vamos verificar.`, 'err');
           }
         } catch {
-          await updateDoc(orderRef!, { status: 'pendente', providerError: 'Falha de comunicação com o provedor.' });
+          await updateDoc(doc(db, 'orders', orderId), { status: 'pendente', providerError: 'Falha de comunicação com o provedor.' });
           push('Pedido criado com pendência. O suporte vai verificar.', 'info');
         }
       } else {
         push('Pedido criado! Acompanhe o status.', 'ok');
       }
       router.replace('/pedidos');
-    } catch (err) {
-      setError((err as Error).message === 'Saldo insuficiente' ? 'Saldo insuficiente para este serviço.' : 'Não foi possível criar o pedido. Tente novamente.');
+    } catch {
+      setError('Não foi possível criar o pedido. Tente novamente.');
     } finally {
       setBusy(false);
     }

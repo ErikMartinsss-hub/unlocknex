@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('stripe checkout erro:', message);
-    return NextResponse.json({ ok: false, message }, { status: 502 });
+    const friendly = /(pix is invalid|pix.*invalid|payment method type.*pix)/i.test(message)
+      ? 'PIX ainda não liberado na sua conta Stripe. Ative o método em Developers → Payment methods ou use Cartão/Boleto.'
+      : message;
+    return NextResponse.json({ ok: false, message: friendly }, { status: 502 });
   }
 }

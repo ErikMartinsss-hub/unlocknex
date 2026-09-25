@@ -25,7 +25,7 @@ async function stripeApi<T>(path: string, form: Record<string, string>): Promise
   const json = (await res.json().catch(() => null)) as T | StripeError | null;
   if (!res.ok || !json) {
     const message =
-      json && 'error' in json && typeof json.error?.message === 'string'
+      json && typeof json === 'object' && 'error' in json && typeof json.error?.message === 'string'
         ? json.error.message
         : `Stripe: HTTP ${res.status}`;
     throw new Error(`Stripe: ${message}`);

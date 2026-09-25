@@ -36,6 +36,17 @@ No **Vercel**, configure as mesmas variáveis (Project → Settings → Environm
 `MERCADO_PAGO_ACCESS_TOKEN`, `MERCADO_PAGO_CLIENT_ID`, `MERCADO_PAGO_CLIENT_SECRET`,
 `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY`, `SITE_URL` e `MERCADO_PAGO_WEBHOOK_SECRET`.
 
+> **⚠️ Dicas importantes (Vercel):**
+> 1. **Variáveis só valem para builds novos** — depois de salvar, dê **Redeploy**
+>    (aba Deployments → ⋮ → Redeploy). Enquanto isso, o `/api/mp/status` continua
+>    mostrando o deploy antigo.
+> 2. **Jamais use placeholders** — o valor de `MERCADO_PAGO_CLIENT_SECRET` deve ser o
+>    Client Secret real do painel do MP (padrão: ~32 caracteres alfanuméricos). Um valor
+>    como `<seu Client Secret>` deixa a variável com status "Needs Attention" e o
+>    auto-refresh desligado.
+> 3. Confira o resultado em `GET /api/mp/status`: `token.source` deve virar
+>    `client_credentials (oauth/cache)` quando o auto-refresh estiver ativo.
+
 ### Webhook (crédito automático de saldo)
 
 1. No painel do Mercado Pago (Suas integrações → sua aplicação → **Webhooks**), cadastre:

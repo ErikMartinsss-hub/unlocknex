@@ -76,7 +76,6 @@ export async function createStripeSession(data: {
     // Método de pagamento + rastreio (negócio)
     'payment_method_types[0]': data.method,
     client_reference_id: data.correlationId,
-    customer_email: data.email,
     'metadata[userId]': data.userId,
     'metadata[correlationId]': data.correlationId,
     'metadata[amount]': String(data.amount),
@@ -86,8 +85,11 @@ export async function createStripeSession(data: {
     'line_items[0][price_data][product_data][name]': 'Recarga de saldo UnlockNex',
   };
   if (data.customer) {
+    // customer e customer_email são mutuamente exclusivos na API
     form.customer = data.customer;
     form['saved_payment_method_options[payment_method_save]'] = 'enabled';
+  } else {
+    form.customer_email = data.email;
   }
   return stripeApi<StripeSession>('/v1/checkout/sessions', form);
 }

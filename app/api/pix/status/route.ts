@@ -47,5 +47,14 @@ export async function POST(req: NextRequest) {
     else lastError = res.error ?? 'erro';
   }
 
+  console.log('[pix/status]', {
+    uid: claims.uid,
+    candidates: candidates.length,
+    credited,
+    alreadyConfirmed,
+    stillPending,
+    error: lastError,
+  });
+
   return NextResponse.json({ ok: true, credited, alreadyConfirmed, stillPending, error: lastError });
 }

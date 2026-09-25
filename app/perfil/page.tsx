@@ -33,31 +33,12 @@ function Perfil() {
   useEffect(() => {
     if (!user || didSweep.current) return;
     didSweep.current = true;
-    (async () => {
-      try {
-        const idToken = await user.getIdToken();
-        const res = await fetch('/api/pix/status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-          body: '{}',
-        });
-        const data = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          credited?: string[];
-          alreadyConfirmed?: string[];
-        } | null;
-        if (res.ok && data?.ok && (data.credited?.length || data.alreadyConfirmed?.length)) {
-          refreshProfile();
-          push('Pagamento confirmado! Créditos adicionados ao saldo.', 'ok');
-        }
-      } catch {
-        // silencioso — o botão "Já paguei" cobre se falhar aqui
-      }
-    })();
+    syncPayments({ silent: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const checkPayment = async () => {
+  const syncPayments = async (opts: { silent?: boolean } = {}) => {
+    if (checking) return;
     setChecking(true);
     try {
       const idToken = await user!.getIdToken();
@@ -70,19 +51,25 @@ function Perfil() {
         ok?: boolean;
         credited?: string[];
         alreadyConfirmed?: string[];
+        stillPending?: string[];
         error?: string | null;
         message?: string;
       } | null;
-      if (res.ok && data?.ok && (data.credited?.length || data.alreadyConfirmed?.length)) {
+      const creditedCount = (data?.credited?.length ?? 0) + (data?.alreadyConfirmed?.length ?? 0);
+      if (res.ok && data?.ok && creditedCount > 0) {
         refreshProfile();
-        push('Pagamento confirmado! Créditos adicionados ao saldo.', 'ok');
-      } else if (res.ok && data?.ok) {
-        push(data.error ?? 'Pagamento ainda não confirmado pelo Mercado Pago.', 'err');
-      } else {
+        push(`Pagamento confirmado! Créditos adicionados ao saldo.`, 'ok');
+      } else if (res.ok && data?.ok && (data.stillPending?.length ?? 0) > 0) {
+        push('Pagamento localizado, mas ainda não aprovado no Mercado Pago.', 'err');
+      } else if (res.ok && data?.ok && data.error) {
+        push(`Erro ao sincronizar: ${data.error}`, 'err');
+      } else if (res.ok && data?.ok && !opts.silent) {
+        push('Nenhuma cobrança pendente encontrada nesta conta.', 'err');
+      } else if (!res.ok && !opts.silent) {
         push(data?.message ?? 'Não foi possível verificar o pagamento.', 'err');
       }
     } catch {
-      push('Falha na comunicação. Tente novamente.', 'err');
+      if (!opts.silent) push('Falha na comunicação. Tente novamente.', 'err');
     } finally {
       setChecking(false);
     }
@@ -235,6 +222,12 @@ function Perfil() {
               <Icon name="plus" className="h-4 w-4" />
               Adicionar créditos
             </button>
+            {!qrCode && (
+              <button onClick={() => syncPayments()} disabled={checking} className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-neon-300 disabled:opacity-50">
+                <Icon name="refresh" className="h-3.5 w-3.5" />
+                {checking ? 'Sincronizando…' : 'Sincronizar pagamentos ✓'}
+              </button>
+            )}
             {showAdd && !qrCode && (
               <div className="mt-3">
                 <div className="grid grid-cols-3 gap-2">
@@ -299,7 +292,7 @@ function Perfil() {
                   <Icon name="clock" className="h-3.5 w-3.5" />
                   Aguardando pagamento…
                 </p>
-                <button onClick={checkPayment} disabled={checking} className="btn-neon w-full py-2 text-xs disabled:opacity-50">
+                <button onClick={() => syncPayments()} disabled={checking} className="btn-neon w-full py-2 text-xs disabled:opacity-50">
                   {checking ? 'Verificando…' : 'Já paguei ✓'}
                 </button>
               </div>

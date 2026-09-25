@@ -40,6 +40,7 @@ const paths: Record<string, IconPath> = {
   mapPin: <><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0z" /><circle cx="12" cy="10" r="3" /></>,
   coin: <><circle cx="12" cy="12" r="9" /><path d="M12 7v10M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 2 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5" /></>,
   alert: <><path d="M12 8v5M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></>,
+  refresh: <><path d="M20 12a8 8 0 1 1-2.3-5.6" /><path d="M21 3v5h-5" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5h.01" /></>,
 };
 

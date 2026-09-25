@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const user = userSnap.data() as { name?: string; email?: string };
 
   const correlationId = `unl-${claims.uid.slice(0, 8)}-${randomUUID()}`;
-  const siteUrl = (process.env.SITE_URL ?? 'https://www.unlocknex.com.br').replace(/\/+$/, '');
+  const siteUrl = (process.env.SITE_URL ?? 'https://unlocknex.vercel.app').replace(/\/+$/, '');
 
   try {
     const payment = await createMpPixPayment({

@@ -15,6 +15,8 @@ Integração de pagamentos **UnlockNex via Mercado Pago** (substituiu o Stripe �
 - `app/perfil/page.tsx` voltou a chamar `/api/pix/charge` (PIX c/ QR) e `/api/mp/checkout` (card/boleto).
 - `.env.local` com as credenciais novas da conta VEXTEC (Access Token, Public Key, Client ID/Secret).
 - OAuth `client_credentials` **validado** para a conta nova — auto-refresh do token funcionará na Vercel.
+- **Cache de token no Firestore (`config/mp-token`) agora valida o `clientId`** — se as credenciais
+  mudarem (ex.: troca de conta MP), o token velho é ignorado automaticamente e o novo é gerado na hora.
 
 ## ⏳ Pendências (ações no painel — não dá pra fazer por código)
 

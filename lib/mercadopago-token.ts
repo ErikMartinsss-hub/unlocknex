@@ -45,6 +45,9 @@ async function readShared(): Promise<StoredToken | null> {
     const snap = await getAdminDb().doc('config/mp-token').get();
     const d = snap.data();
     if (!d?.accessToken || !d?.expiresAt) return null;
+    // Invalida cache gerado por OUTRA aplicação/conta (ex.: troca de credenciais MP).
+    // Passa a usar o token novo imediatamente após trocar CLIENT_ID no ambiente.
+    if (CLIENT_ID && d.clientId !== CLIENT_ID) return null;
     return { accessToken: String(d.accessToken), expiresAt: Number(d.expiresAt) };
   } catch {
     // Firestore indisponível (ex.: sem service account) — segue com o cache do processo.
@@ -56,7 +59,12 @@ async function writeShared(token: StoredToken): Promise<void> {
   try {
     await getAdminDb()
       .doc('config/mp-token')
-      .set({ accessToken: token.accessToken, expiresAt: token.expiresAt, updatedAt: Date.now() });
+      .set({
+        accessToken: token.accessToken,
+        expiresAt: token.expiresAt,
+        clientId: CLIENT_ID || null,
+        updatedAt: Date.now(),
+      });
   } catch {
     // Ignora — o cache da instância ainda protege esta execução.
   }

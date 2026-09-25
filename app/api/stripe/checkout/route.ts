@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { createStripeCustomer, createStripeSession, type StripeMethod } from '@/lib/stripe';
+import { createStripeCustomer, createStripeSession, type StripeMethod, type StripeSession } from '@/lib/stripe';
 
 export const runtime = 'nodejs';
 
@@ -44,37 +44,55 @@ export async function POST(req: NextRequest) {
 
   try {
     let customer = userData.stripeCustomerId ?? null;
-    if (!customer) {
-      customer = (await createStripeCustomer(email)).id;
-      await db.doc(`users/${uid}`).set({ stripeCustomerId: customer }, { merge: true });
+
+    // Uma tentativa extra: se o customer salvo não existir na conta Stripe
+    // (ex.: criado em modo teste e a chave virou live), recria e tenta de novo.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (!customer) {
+        customer = (await createStripeCustomer(email)).id;
+        await db.doc(`users/${uid}`).set({ stripeCustomerId: customer }, { merge: true });
+      }
+
+      let session: StripeSession;
+      try {
+        session = await createStripeSession({
+          method,
+          amount: value,
+          email,
+          correlationId,
+          userId: uid,
+          successUrl: `${siteUrl}/perfil?status=approved&method=${method}`,
+          cancelUrl: `${siteUrl}/perfil?status=canceled&method=${method}`,
+          customer,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (attempt === 0 && /No such customer/i.test(msg)) {
+          customer = null;
+          continue;
+        }
+        throw err;
+      }
+
+      if (!session.url) {
+        throw new Error('Stripe: resposta sem URL de checkout.');
+      }
+
+      await db.doc(`payments/${correlationId}`).set({
+        userId: uid,
+        amount: value,
+        status: 'pending',
+        provider: 'stripe',
+        method,
+        correlationId,
+        stripeSessionId: session.id,
+        createdAt: Date.now(),
+      });
+
+      return NextResponse.json({ ok: true, url: session.url, method });
     }
 
-    const session = await createStripeSession({
-      method,
-      amount: value,
-      email,
-      correlationId,
-      userId: uid,
-      successUrl: `${siteUrl}/perfil?status=approved&method=${method}`,
-      cancelUrl: `${siteUrl}/perfil?status=canceled&method=${method}`,
-      customer,
-    });
-    if (!session.url) {
-      throw new Error('Stripe: resposta sem URL de checkout.');
-    }
-
-    await db.doc(`payments/${correlationId}`).set({
-      userId: uid,
-      amount: value,
-      status: 'pending',
-      provider: 'stripe',
-      method,
-      correlationId,
-      stripeSessionId: session.id,
-      createdAt: Date.now(),
-    });
-
-    return NextResponse.json({ ok: true, url: session.url, method });
+    return NextResponse.json({ ok: false, message: 'Não foi possível criar o checkout.' }, { status: 502 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('stripe checkout erro:', message);

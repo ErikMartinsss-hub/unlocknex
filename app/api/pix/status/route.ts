@@ -37,14 +37,16 @@ export async function POST(req: NextRequest) {
   const credited: string[] = [];
   const alreadyConfirmed: string[] = [];
   const stillPending: string[] = [];
+  const expired: string[] = [];
   let lastError: string | null = null;
 
   for (const c of candidates.slice(0, 5)) {
     const res = await confirmAndCredit(c.id, c.mpPaymentId);
     if (res.ok && res.alreadyConfirmed) alreadyConfirmed.push(c.id);
     else if (res.ok) credited.push(c.id);
-    else if (res.status && res.status !== 'approved') stillPending.push(c.id);
-    else lastError = res.error ?? 'erro';
+    else if (!res.ok && res.status === 'missing') expired.push(c.id);
+    else if (!res.ok && res.status && res.status !== 'approved') stillPending.push(c.id);
+    else if (!res.ok) lastError = res.error ?? 'erro';
   }
 
   console.log('[pix/status]', {
@@ -53,8 +55,9 @@ export async function POST(req: NextRequest) {
     credited,
     alreadyConfirmed,
     stillPending,
+    expired,
     error: lastError,
   });
 
-  return NextResponse.json({ ok: true, credited, alreadyConfirmed, stillPending, error: lastError });
+  return NextResponse.json({ ok: true, credited, alreadyConfirmed, stillPending, expired, error: lastError });
 }

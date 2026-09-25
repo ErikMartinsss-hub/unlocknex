@@ -52,6 +52,7 @@ function Perfil() {
         credited?: string[];
         alreadyConfirmed?: string[];
         stillPending?: string[];
+        expired?: string[];
         error?: string | null;
         message?: string;
       } | null;
@@ -63,6 +64,8 @@ function Perfil() {
         push('Pagamento localizado, mas ainda não aprovado no Mercado Pago.', 'err');
       } else if (res.ok && data?.ok && data.error) {
         push(`Erro ao sincronizar: ${data.error}`, 'err');
+      } else if (res.ok && data?.ok && (data.expired?.length ?? 0) > 0 && !opts.silent) {
+        push('Tudo certo! Nenhum pagamento novo — cobranças antigas/expiradas foram limpas.', 'ok');
       } else if (res.ok && data?.ok && !opts.silent) {
         push('Nenhuma cobrança pendente encontrada nesta conta.', 'err');
       } else if (!res.ok && !opts.silent) {

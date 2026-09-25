@@ -30,7 +30,17 @@ export async function confirmAndCredit(
     try {
       payment = await getMpPayment(mpPaymentId);
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      const msg = err instanceof Error ? err.message : String(err);
+      // Exceção: pagamento não existe no MP (cobrança órfã de conta antiga ou
+      // expirada/removida). Marca como expirada para não poluir futuras
+      // sincronizações e retorna status 'missing' (não é erro para o usuário).
+      if (/Payment not found|not_found|"status":404/i.test(msg)) {
+        await payRef
+          .set({ status: 'expired', expiredAt: Date.now(), expiredReason: 'mp-payment-missing' }, { merge: true })
+          .catch(() => {});
+        return { ok: false, status: 'missing', error: 'mp-payment-missing' };
+      }
+      return { ok: false, error: msg };
     }
   }
   if (payment.status !== 'approved' || payment.status_detail !== 'accredited') {

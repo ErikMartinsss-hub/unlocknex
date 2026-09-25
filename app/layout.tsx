@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Outfit } from 'next/font/google';
 import '@/app/globals.css';
+import { AgentChat } from '@/components/AgentChat';
 import { AuthProvider } from '@/components/AuthProvider';
 import { Toaster } from '@/components/Toaster';
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <Toaster>{children}</Toaster>
         </AuthProvider>
+        <AgentChat />
       </body>
     </html>
   );

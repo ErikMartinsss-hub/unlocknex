@@ -28,6 +28,7 @@ export type MpPayment = {
   id: number;
   status: string;
   status_detail?: string;
+  payment_method_id?: string;
   date_of_expiration?: string;
   external_reference?: string;
   payer?: { email?: string };
@@ -68,6 +69,55 @@ export async function getMpPayment(id: string | number): Promise<MpPayment> {
   const res = await mpCall<MpPayment>(`/v1/payments/${id}`, {});
   if (!res.id) throw new Error('Mercado Pago: pagamento não encontrado.');
   return res;
+}
+
+export type MpCheckoutMethod = 'card' | 'boleto';
+
+export type MpPreference = {
+  id: string;
+  init_point?: string;
+  sandbox_init_point?: string;
+};
+
+export async function createMpCheckoutPreference(data: {
+  transactionAmount: number;
+  description: string;
+  payerEmail: string;
+  externalReference: string;
+  notificationUrl: string;
+  backUrls: { success: string; pending: string; failure: string };
+  method: MpCheckoutMethod;
+}): Promise<MpPreference> {
+  const excludeCard = ['ticket', 'bank_transfer', 'atm', 'prepaid_card'];
+  const excludeBoleto = ['credit_card', 'debit_card', 'bank_transfer', 'atm', 'prepaid_card'];
+  const body = {
+    items: [
+      {
+        title: data.description,
+        quantity: 1,
+        unit_price: data.transactionAmount,
+        currency_id: 'BRL',
+      },
+    ],
+    payer: { email: data.payerEmail },
+    external_reference: data.externalReference,
+    notification_url: data.notificationUrl,
+    back_urls: data.backUrls,
+    auto_return: 'approved',
+    statement_descriptor: 'UNLOCKNEX',
+    payment_methods: {
+      excluded_payment_types: (data.method === 'card' ? excludeCard : excludeBoleto).map((id) => ({ id })),
+    },
+  };
+  const res = await mpCall<MpPreference>('/checkout/preferences', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  const initPoint = res.init_point ?? res.sandbox_init_point;
+  if (!res.id || !initPoint) {
+    throw new Error('Mercado Pago: resposta sem init_point.');
+  }
+  return { id: res.id, init_point: initPoint };
 }
 
 export function verifyMpWebhook(deps: {

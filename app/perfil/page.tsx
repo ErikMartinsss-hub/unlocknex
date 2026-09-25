@@ -9,7 +9,7 @@ import { useToast } from '@/components/Toaster';
 import { useTransactions } from '@/lib/hooks';
 import { getDbFirebase } from '@/lib/firebase';
 import { Icon } from '@/components/Icon';
-import { brl, dateTimeBR, transactionType } from '@/lib/format';
+import { brl, dateTimeBR, transactionType, paymentMethodLabel } from '@/lib/format';
 
 function Perfil() {
   const { user, profile, refreshProfile } = useAuth();
@@ -19,6 +19,7 @@ function Perfil() {
   const [phone, setPhone] = useState(profile?.phone ?? '');
   const [showAdd, setShowAdd] = useState(false);
   const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<'pix' | 'card' | 'boleto'>('pix');
   const [charging, setCharging] = useState(false);
   const [chargeError, setChargeError] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
@@ -58,12 +59,7 @@ function Perfil() {
     }
   };
 
-  const chargePix = async () => {
-    const value = parseFloat(amount.replace(',', '.'));
-    if (!value || value < 5) {
-      setChargeError('Valor mínimo de R$ 5,00.');
-      return;
-    }
+  const chargePix = async (value: number) => {
     setCharging(true);
     setChargeError(null);
     try {
@@ -93,6 +89,43 @@ function Perfil() {
     } finally {
       setCharging(false);
     }
+  };
+
+  const chargeCheckout = async (value: number, payMethod: 'card' | 'boleto') => {
+    setCharging(true);
+    setChargeError(null);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/mp/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ amount: value, method: payMethod }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        initPoint?: string;
+        message?: string;
+      };
+      if (res.ok && data.ok && data.initPoint) {
+        window.location.href = data.initPoint;
+      } else {
+        setChargeError(data.message ?? 'Não foi possível iniciar o pagamento.');
+      }
+    } catch {
+      setChargeError('Falha na comunicação. Tente novamente.');
+    } finally {
+      setCharging(false);
+    }
+  };
+
+  const charge = async () => {
+    const value = parseFloat(amount.replace(',', '.'));
+    if (!value || value < 5) {
+      setChargeError('Valor mínimo de R$ 5,00.');
+      return;
+    }
+    if (method === 'pix') return chargePix(value);
+    return chargeCheckout(value, method);
   };
 
   const copyPix = async () => {
@@ -142,7 +175,29 @@ function Perfil() {
             </button>
             {showAdd && !qrCode && (
               <div className="mt-3">
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      { id: 'pix', label: 'PIX', icon: 'bolt' },
+                      { id: 'card', label: 'Cartão', icon: 'credit' },
+                      { id: 'boleto', label: 'Boleto', icon: 'file' },
+                    ] as const
+                  ).map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setMethod(m.id)}
+                      className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-xs font-semibold transition ${
+                        method === m.id
+                          ? 'border-neon-500/50 bg-neon-500/10 text-neon-300'
+                          : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                      }`}
+                    >
+                      <Icon name={m.icon} className="h-3.5 w-3.5" />
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 flex gap-2">
                   <input
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
@@ -150,11 +205,17 @@ function Perfil() {
                     inputMode="decimal"
                     className="input-dark"
                   />
-                  <button onClick={chargePix} disabled={charging} className="btn-neon shrink-0 px-4 py-2 text-sm disabled:opacity-50">
-                    {charging ? 'Gerando…' : 'OK'}
+                  <button onClick={charge} disabled={charging} className="btn-neon shrink-0 px-4 py-2 text-sm disabled:opacity-50">
+                    {charging ? (method === 'pix' ? 'Gerando…' : 'Ir pagar…') : 'OK'}
                   </button>
                 </div>
-                <p className="mt-2 text-xs text-zinc-600">Recarga via PIX (mínimo R$ 5,00). O saldo entra automaticamente após a confirmação.</p>
+                <p className="mt-2 text-xs text-zinc-600">
+                  {method === 'pix'
+                    ? 'Recarga via PIX (mínimo R$ 5,00). O saldo entra automaticamente após a confirmação.'
+                    : method === 'card'
+                      ? 'Pagamento com cartão via Mercado Pago. Você será redirecionado para concluir.'
+                      : 'Boleto bancário via Mercado Pago. Você será redirecionado para gerar o boleto.'}
+                </p>
                 {chargeError && <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{chargeError}</p>}
               </div>
             )}
@@ -192,7 +253,7 @@ function Perfil() {
                   <div>
                     <p className={`text-sm font-semibold ${transactionType(t.type).className}`}>{transactionType(t.type).label}</p>
                     <p className="text-xs text-zinc-500">
-                      {dateTimeBR(t.createdAt)} • {t.paymentMethod ?? 'saldo'}
+                      {dateTimeBR(t.createdAt)} • {paymentMethodLabel(t.paymentMethod)}
                     </p>
                   </div>
                   <p className={`font-bold ${t.amount > 0 ? 'text-emerald-400' : 'text-zinc-400'}`}>

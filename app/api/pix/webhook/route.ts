@@ -56,9 +56,10 @@ async function handleWebhook(req: NextRequest) {
   const paySnap = await payRef.get().catch(() => null);
   if (!paySnap?.exists) return NextResponse.json({ ok: false, message: 'Cobrança não encontrada.' }, { status: 400 });
 
-  const data = paySnap.data() as { userId?: string; amount?: number; status?: string };
+  const data = paySnap.data() as { userId?: string; amount?: number; status?: string; method?: string };
   if (data.status === 'confirmed') return NextResponse.json({ ok: true });
   if (!data.userId || !data.amount) return NextResponse.json({ ok: false }, { status: 400 });
+  const method = data.method === 'card' || data.method === 'boleto' ? data.method : 'pix';
 
   try {
     await db.runTransaction(async (tx) => {
@@ -73,7 +74,7 @@ async function handleWebhook(req: NextRequest) {
         userId: data.userId,
         type: 'deposit',
         amount: data.amount,
-        paymentMethod: 'pix',
+        paymentMethod: method,
         provider: 'mercadopago',
         reference: correlationId,
         mpPaymentId: payment.id,

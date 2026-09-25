@@ -81,3 +81,16 @@ export function transactionType(type: string): StatusInfo {
       return { label: type, className: 'text-zinc-400' };
   }
 }
+
+export function paymentMethodLabel(method: string | null | undefined): string {
+  switch (method) {
+    case 'pix':
+      return 'PIX';
+    case 'card':
+      return 'Cartão';
+    case 'boleto':
+      return 'Boleto';
+    default:
+      return method ?? 'saldo';
+  }
+}

@@ -20,9 +20,9 @@ export default function RemotePage() {
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     let out = remoteServicesSeed.filter((s) => !q || s.name.toLowerCase().includes(q));
-    if (filter === 'baratos') out = out.filter((s) => s.price > 0 && s.price < 1);
-    if (filter === 'medios') out = out.filter((s) => s.price >= 1 && s.price <= 3.5);
-    if (filter === 'caros') out = out.filter((s) => s.price > 3.5);
+    if (filter === 'baratos') out = out.filter((s) => s.price > 0 && s.price <= 6);
+    if (filter === 'medios') out = out.filter((s) => s.price > 6 && s.price <= 21);
+    if (filter === 'caros') out = out.filter((s) => s.price > 21);
     return out;
   }, [query, filter]);
 
@@ -93,7 +93,7 @@ export default function RemotePage() {
                     : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
                 }`}
               >
-                {p === 'todos' ? 'Todos' : p === 'baratos' ? 'Até R$ 1' : p === 'medios' ? 'R$ 1 – R$ 3,50' : 'Acima de R$ 3,50'}
+                {p === 'todos' ? 'Todos' : p === 'baratos' ? 'Até R$ 6' : p === 'medios' ? 'R$ 6 – R$ 21' : 'Acima de R$ 21'}
               </button>
             ))}
           </div>

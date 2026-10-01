@@ -20,7 +20,11 @@ function useCollection<T>(name: string, constraints: QueryConstraint[] = [], dep
         (snap) => {
           setRows(snap.docs.map((d) => ({ ...d.data(), id: d.id }) as T));
         },
-        () => {}
+        (err) => {
+          // Erro comum: índice composto ausente no Firestore
+          // (where + orderBy). O err.message traz o link para criar.
+          console.error(`[firestore] falha ao ler '${name}':`, err);
+        }
       );
     } catch {
       // Firebase não configurado — lista permanece vazia.

@@ -71,14 +71,22 @@ type HuRawOrderResult = {
 
 export async function huPlaceOrders(requests: HuOrderRequest[]): Promise<HuOrderResult[]> {
   const body = requests.map((r) => ({
-    product_uuid: r.productUuid,
+    // A API aceita product_id (numérico) OU product_uuid — sem misturar os
+    // dois estilos na mesma requisição. Valores só-numéricos (ex.: '4697')
+    // vão como product_id, conforme a doc oficial.
+    ...(/^\d+$/.test(r.productUuid) ? { product_id: Number(r.productUuid) } : { product_uuid: r.productUuid }),
     fields: [{ ...r.fields, reference_id: r.referenceId, feedback_url: r.feedbackUrl }],
   }));
-  const json = await huRequest<HuRawOrderResult[]>('/api/reseller/v1/order', {
+  // Resposta oficial: `data` é um array de GRUPOS (um por produto),
+  // ex.: data: [[{ order_uuid, amount, ... }]] — por isso o achatamento.
+  const json = await huRequest<HuRawOrderResult[] | HuRawOrderResult[][]>('/api/reseller/v1/order', {
     method: 'POST',
     body: JSON.stringify(body),
   });
-  return json.data.map((d) => ({
+  const groups = (Array.isArray(json.data) ? json.data : []) as (HuRawOrderResult | HuRawOrderResult[])[];
+  const items = groups.flatMap((g) => (Array.isArray(g) ? g : [g])).filter((d) => d?.order_uuid);
+  if (items.length === 0) throw new Error('Resposta sem pedidos.');
+  return items.map((d) => ({
     orderUuid: d.order_uuid,
     amount: d.amount,
     currencyCode: d.currency_code,

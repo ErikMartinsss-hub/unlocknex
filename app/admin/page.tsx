@@ -29,6 +29,7 @@ function Admin() {
   const downloads = useDownloads();
   const [dlBusca, setDlBusca] = useState('');
   const [dlLinks, setDlLinks] = useState<Record<string, string>>({});
+  const [dlImgs, setDlImgs] = useState<Record<string, string>>({});
   const [dlSalvando, setDlSalvando] = useState<Record<string, boolean>>({});
   const [dlBusy, setDlBusy] = useState(false);
   const [dlResult, setDlResult] = useState<string | null>(null);
@@ -140,7 +141,7 @@ function Admin() {
     }
   };
 
-  const atualizarDownload = async (downloadId: string, patch: { url?: string; isActive?: boolean }) => {
+  const atualizarDownload = async (downloadId: string, patch: { url?: string; imageUrl?: string; isActive?: boolean }) => {
     setDlSalvando((m) => ({ ...m, [downloadId]: true }));
     try {
       const idToken = await user!.getIdToken();
@@ -157,6 +158,11 @@ function Admin() {
           delete c[downloadId];
           return c;
         });
+        setDlImgs((m) => {
+          const c = { ...m };
+          delete c[downloadId];
+          return c;
+        });
       } else {
         push(data.message ?? 'Falha ao salvar.', 'err');
       }
@@ -169,15 +175,27 @@ function Admin() {
 
   const salvarDownload = (downloadId: string) => {
     const url = (dlLinks[downloadId] ?? '').trim();
+    const img = (dlImgs[downloadId] ?? '').trim();
+    const patch: { url?: string; imageUrl?: string } = {};
     if (url !== '') {
       if (!/^https?:\/\/.+/.test(url)) {
-        push('URL inválida (precisa começar com http:// ou https://).', 'err');
+        push('URL do download inválida (precisa começar com http:// ou https://).', 'err');
         return;
       }
-      atualizarDownload(downloadId, { url });
+      patch.url = url;
+    }
+    if (img !== '') {
+      if (!/^https?:\/\/.+/.test(img)) {
+        push('URL da capa inválida (precisa começar com http:// ou https://).', 'err');
+        return;
+      }
+      patch.imageUrl = img;
+    }
+    if (Object.keys(patch).length === 0) {
+      push('Cole o link do download ou da capa primeiro.', 'err');
       return;
     }
-    push('Cole a URL do download primeiro.', 'err');
+    atualizarDownload(downloadId, patch);
   };
 
   const syncDownloads = async () => {
@@ -344,7 +362,7 @@ function Admin() {
           <div className="card-glass rounded-2xl p-6">
             <h2 className="text-lg font-bold text-zinc-100">Central de Downloads</h2>
             <p className="mt-1 text-sm text-zinc-500">
-              Sincroniza o catálogo do código e preenche os links dos programas. O que tiver
+              Sincroniza o catálogo do código e preenche os links e capas dos programas. O que tiver
               link salvo aparece na página Downloads para os técnicos. ({downloads.length} itens)
             </p>
             <button onClick={syncDownloads} disabled={dlBusy} className="btn-neon mt-4 px-5 py-2.5 text-sm disabled:opacity-50">
@@ -382,12 +400,25 @@ function Admin() {
                     inputMode="url"
                     className="input-dark w-full font-mono text-xs"
                   />
+                  <div className="flex w-full items-center gap-2">
+                    {d.imageUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={d.imageUrl} alt="" className="h-8 w-14 shrink-0 rounded-md border border-zinc-800 object-cover" />
+                    ) : null}
+                    <input
+                      value={dlImgs[d.id] ?? ''}
+                      onChange={(e) => setDlImgs((m) => ({ ...m, [d.id]: e.target.value }))}
+                      placeholder={d.imageUrl || 'URL da capa (opcional)…'}
+                      inputMode="url"
+                      className="input-dark w-full font-mono text-xs"
+                    />
+                  </div>
                   <button
                     onClick={() => salvarDownload(d.id)}
                     disabled={!!dlSalvando[d.id]}
                     className="btn-neon shrink-0 px-3 py-2 text-xs disabled:opacity-50"
                   >
-                    {dlSalvando[d.id] ? '…' : 'Salvar link'}
+                    {dlSalvando[d.id] ? '…' : 'Salvar'}
                   </button>
                   <button
                     onClick={() => atualizarDownload(d.id, { isActive: !(d.isActive !== false) })}

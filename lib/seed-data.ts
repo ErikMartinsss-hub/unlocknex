@@ -157,7 +157,7 @@ export const downloadsSeed: DownloadItem[] = [
   { id: 'dl-1', name: 'Anydesk Para Desbloqueios 💻', version: '7', description: 'Windows 7, 8, 10 e 11', category: 'ferramenta', url: '', isActive: true },
   { id: 'dl-2', name: 'Rustdesk', version: 'Atualizado', description: 'Acesso remoto', category: 'ferramenta', url: '', isActive: true },
   { id: 'dl-3', name: 'Octoplus - Pack remoto', version: '5.11', description: 'Senha: f5gsm.com.br', category: 'ferramenta', url: '', isActive: true },
-  { id: 'dl-4', name: 'Driver MTK 💻', version: 'All', description: 'MTK Auto installation drivers', category: 'driver', url: '', isActive: true },
+  { id: 'dl-4', name: 'Driver MTK 💻', version: 'All', description: 'MTK Auto installation drivers', category: 'driver', url: 'https://mega.nz/file/10U3iBiT#L9iKlwK1LU6AxaZjNYNI3VDULtEKqR0bU7M1iCrWb6w', imageUrl: 'https://i.ytimg.com/vi/RvtOz_2cYwk/maxresdefault.jpg', isActive: true },
   { id: 'dl-5', name: 'Driver UsbDK 💻', version: 'All', description: 'UsbDk devices', category: 'driver', url: '', isActive: true },
   { id: 'dl-6', name: 'USB Redirector Versão 1.97', version: 'V1.97', description: 'Conecta apenas com IP', category: 'ferramenta', url: '', isActive: true },
   { id: 'dl-7', name: 'Driver MTK e Qualcomm OPPO / Realme', version: 'V2', description: 'Drivers Oppo / Realme', category: 'driver', url: '', isActive: true },

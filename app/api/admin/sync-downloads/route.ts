@@ -37,9 +37,10 @@ export async function POST(req: NextRequest) {
     const ref = db.doc(`downloads/${String(rec.id)}`);
     const snap = await ref.get().catch(() => null);
     if (snap?.exists) {
-      // Documento existente: preserva link e disponibilidade ajustados no painel.
+      // Documento existente: preserva link, capa e disponibilidade ajustados no painel.
       const rest = { ...rec };
       delete rest.url;
+      delete rest.imageUrl;
       delete rest.isActive;
       await ref.set(rest, { merge: true });
     } else {

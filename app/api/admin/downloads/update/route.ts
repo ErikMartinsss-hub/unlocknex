@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as {
     downloadId?: string;
     url?: string;
+    imageUrl?: string;
     isActive?: boolean;
     name?: string;
     version?: string;
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
 
   const patch: Record<string, boolean | string | FieldValue> = {};
   let clearUrl = false;
+  let clearImageUrl = false;
 
   const setText = (key: string, value: unknown, label: string, maxLen: number) => {
     if (typeof value !== 'string' || value.length > maxLen) {
@@ -52,21 +54,24 @@ export async function POST(req: NextRequest) {
     if (v !== '') patch[key] = v;
   };
 
-  try {
-    if (body?.url !== undefined) {
-      if (typeof body.url !== 'string' || body.url.length > 500) {
-        return NextResponse.json({ ok: false, message: 'URL inválida.' }, { status: 400 });
-      }
-      const url = body.url.trim();
-      if (url === '') {
-        clearUrl = true;
-      } else {
-        if (!/^https?:\/\/.+/.test(url)) {
-          return NextResponse.json({ ok: false, message: 'URL inválida.' }, { status: 400 });
-        }
-        patch.url = url;
-      }
+  const setUrlField = (key: 'url' | 'imageUrl', value: unknown, clear: (v: boolean) => void) => {
+    if (typeof value !== 'string' || value.length > 500) {
+      throw new Error('URL inválida.');
     }
+    const url = value.trim();
+    if (url === '') {
+      clear(true);
+    } else {
+      if (!/^https?:\/\/.+/.test(url)) {
+        throw new Error('URL inválida.');
+      }
+      patch[key] = url;
+    }
+  };
+
+  try {
+    if (body?.url !== undefined) setUrlField('url', body.url, (v) => (clearUrl = v));
+    if (body?.imageUrl !== undefined) setUrlField('imageUrl', body.imageUrl, (v) => (clearImageUrl = v));
     if (body?.isActive !== undefined) {
       if (typeof body.isActive !== 'boolean') {
         return NextResponse.json({ ok: false, message: 'Disponibilidade inválida.' }, { status: 400 });
@@ -89,7 +94,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (Object.keys(patch).length === 0 && !clearUrl) {
+  if (Object.keys(patch).length === 0 && !clearUrl && !clearImageUrl) {
     return NextResponse.json({ ok: false, message: 'Nada para atualizar.' }, { status: 400 });
   }
 
@@ -97,6 +102,7 @@ export async function POST(req: NextRequest) {
   const snap = await ref.get().catch(() => null);
   if (!snap?.exists) return NextResponse.json({ ok: false, message: 'Download não encontrado.' }, { status: 404 });
   if (clearUrl) patch.url = FieldValue.delete();
+  if (clearImageUrl) patch.imageUrl = FieldValue.delete();
   await ref.set(patch, { merge: true });
   return NextResponse.json({ ok: true, downloadId });
 }

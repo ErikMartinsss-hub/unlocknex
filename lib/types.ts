@@ -95,5 +95,6 @@ export type DownloadItem = {
   description: string;
   category: DownloadCategory;
   url: string;
+  imageUrl?: string | null;
   isActive: boolean;
 };

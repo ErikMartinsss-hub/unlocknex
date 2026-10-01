@@ -45,26 +45,44 @@ function Downloads() {
           {items.map((d) => (
             <article
               key={d.id}
-              className="card-glass group flex flex-col rounded-2xl p-5 transition hover:-translate-y-0.5 hover:border-neon-500/40"
+              className="card-glass group flex flex-col overflow-hidden rounded-2xl transition hover:-translate-y-0.5 hover:border-neon-500/40"
             >
-              <div className="flex items-center justify-between">
-                <span
-                  className={`flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 ${
-                    d.category === 'driver' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-neon-500/10 text-neon-400'
-                  }`}
-                >
-                  <Icon name={d.category === 'driver' ? 'chip' : 'wrench'} className="h-5.5 w-5.5" />
-                </span>
-                {d.version && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-500">
-                    <Icon name="clock" className="h-3.5 w-3.5" />
-                    {d.version}
+              {d.imageUrl ? (
+                <div className="relative h-28 shrink-0 overflow-hidden border-b border-zinc-800/70">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={d.imageUrl}
+                    alt={d.name}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  {d.version && (
+                    <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-200 backdrop-blur">
+                      v{d.version}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between px-5 pt-5">
+                  <span
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 ${
+                      d.category === 'driver' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-neon-500/10 text-neon-400'
+                    }`}
+                  >
+                    <Icon name={d.category === 'driver' ? 'chip' : 'wrench'} className="h-5.5 w-5.5" />
                   </span>
-                )}
-              </div>
-              <h3 className="mt-4 font-bold leading-snug text-zinc-100 group-hover:text-neon-300">{d.name}</h3>
-              <p className="mt-1.5 line-clamp-2 min-h-[2.5rem] text-sm text-zinc-500">{d.description}</p>
-              <div className="mt-4 border-t border-zinc-800/70 pt-4">
+                  {d.version && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-500">
+                      <Icon name="clock" className="h-3.5 w-3.5" />
+                      {d.version}
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="flex flex-1 flex-col p-5">
+                <h3 className="font-bold leading-snug text-zinc-100 group-hover:text-neon-300">{d.name}</h3>
+                <p className="mt-1.5 line-clamp-2 min-h-[2.5rem] text-sm text-zinc-500">{d.description}</p>
+                <div className="mt-4 flex-1 border-t border-zinc-800/70 pt-4">
                 {d.url ? (
                   <a
                     href={d.url}
@@ -80,6 +98,7 @@ function Downloads() {
                     Link em breve
                   </div>
                 )}
+              </div>
               </div>
             </article>
           ))}

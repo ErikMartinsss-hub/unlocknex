@@ -44,9 +44,20 @@ export async function POST(req: NextRequest) {
   };
 
   await chunked(categoriesSeed, 10, (c) => db.doc(`categories/${c.id}`).set(c, { merge: true }));
-  await chunked(services, 10, (s) =>
-    db.doc(`services/${(s as { id: string }).id}`).set(s, { merge: true })
-  );
+  await chunked(services, 10, async (s) => {
+    const rec = s as unknown as Record<string, unknown>;
+    const ref = db.doc(`services/${String(rec.id)}`);
+    const snap = await ref.get().catch(() => null);
+    if (snap?.exists) {
+      // Documento existente: preserva preço e disponibilidade ajustados no painel.
+      const rest = { ...rec };
+      delete rest.price;
+      delete rest.isActive;
+      await ref.set(rest, { merge: true });
+    } else {
+      await ref.set(rec, { merge: true });
+    }
+  });
 
   return NextResponse.json({ ok: true, categories: categoriesSeed.length, services: services.length });
 }

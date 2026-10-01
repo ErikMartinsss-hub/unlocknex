@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { RequireAuth } from '@/components/Guard';
 import { AppShell } from '@/components/AppShell';
 import { useAuth } from '@/components/AuthProvider';
+import { useToast } from '@/components/Toaster';
 import { useServices, useOrders } from '@/lib/hooks';
 import { Icon } from '@/components/Icon';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -37,9 +39,35 @@ function DeliveryBox({ o }: { o: OrderRow }) {
 }
 
 function Pedidos() {
-  const { profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
+  const { push } = useToast();
   const services = useServices();
   const orders = useOrders(profile?.uid, 100);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const cancelOrder = async (orderId: string) => {
+    if (!window.confirm('Cancelar este pedido e devolver o valor ao saldo?')) return;
+    setCancelling(orderId);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/orders/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as { ok?: boolean; message?: string };
+      if (res.ok && data.ok) {
+        await refreshProfile();
+        push('Pedido cancelado e valor devolvido ao saldo.', 'ok');
+      } else {
+        push(data.message ?? 'Não foi possível cancelar.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setCancelling(null);
+    }
+  };
 
   return (
     <AppShell header="Meus pedidos">
@@ -93,6 +121,17 @@ function Pedidos() {
                           <p className="mt-1 text-[11px] leading-tight text-zinc-500">{apiStatusLabel(o.apiStatus)}</p>
                         )}
                         <DeliveryBox o={o} />
+                        {(o.status === 'pendente' || o.status === 'processando') &&
+                          !o.apiOrderId &&
+                          o.provider === 'auto' && (
+                            <button
+                              onClick={() => cancelOrder(o.id)}
+                              disabled={cancelling === o.id}
+                              className="mt-1.5 text-[11px] font-semibold text-red-400 hover:underline disabled:opacity-50"
+                            >
+                              {cancelling === o.id ? 'Cancelando…' : 'Cancelar e reembolsar'}
+                            </button>
+                          )}
                       </td>
                     </tr>
                   );

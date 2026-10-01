@@ -13,6 +13,8 @@ function Admin() {
   const { push } = useToast();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [rulesBusy, setRulesBusy] = useState(false);
+  const [rulesResult, setRulesResult] = useState<string | null>(null);
 
   const isAdmin = profile?.role === 'admin';
 
@@ -206,6 +208,30 @@ function Admin() {
     }
   };
 
+  const publishRules = async () => {
+    setRulesBusy(true);
+    setRulesResult(null);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/sync-rules', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as { ok?: boolean; message?: string };
+      if (res.ok && data.ok) {
+        setRulesResult(data.message ?? 'Regras publicadas.');
+        push('Regras do banco publicadas!', 'ok');
+      } else {
+        setRulesResult(data.message ?? 'Falha ao publicar regras.');
+        push(data.message ?? 'Falha ao publicar regras.', 'err');
+      }
+    } catch {
+      setRulesResult('Falha na comunicação. Tente novamente.');
+    } finally {
+      setRulesBusy(false);
+    }
+  };
+
   return (
     <AppShell header="Administração">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -219,11 +245,21 @@ function Admin() {
               Sua conta não é administradora. Peça para ajustarem seu cargo (role = admin) no Firestore.
             </p>
           ) : (
-            <button onClick={sync} disabled={busy} className="btn-neon mt-4 px-5 py-2.5 text-sm disabled:opacity-50">
-              {busy ? 'Sincronizando…' : 'Sincronizar catálogo'}
-            </button>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button onClick={sync} disabled={busy} className="btn-neon px-5 py-2.5 text-sm disabled:opacity-50">
+                {busy ? 'Sincronizando…' : 'Sincronizar catálogo'}
+              </button>
+              <button
+                onClick={publishRules}
+                disabled={rulesBusy}
+                className="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-neon-500/50 hover:text-neon-400 disabled:opacity-50"
+              >
+                {rulesBusy ? 'Publicando…' : 'Publicar regras do banco'}
+              </button>
+            </div>
           )}
           {result && <p className="mt-3 text-sm text-zinc-300">{result}</p>}
+          {rulesResult && <p className="mt-2 text-sm text-zinc-300">{rulesResult}</p>}
         </div>
 
         {isAdmin && (

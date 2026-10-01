@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 
 let app: App | undefined;
 
-function getAdminApp(): App {
+export function getAdminApp(): App {
   if (app) return app;
   if (getApps().length) {
     app = getApps()[0];

@@ -1,4 +1,13 @@
-rules_version = '2';
+/**
+ * Fonte única das regras do Firestore publicadas pelo botão
+ * "Publicar regras do banco" no /admin (rota /api/admin/sync-rules).
+ *
+ * IMPORTANTE: mantenha igual ao conteúdo de firestore.rules (usado para
+ * consulta e publicação manual no console). O botão do /admin usa este
+ * módulo porque em produção (Vercel) o arquivo .rules não acompanha o
+ * pacote de deploy.
+ */
+export const FIRESTORE_RULES_SOURCE = `rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -75,3 +84,4 @@ service cloud.firestore {
     }
   }
 }
+`;

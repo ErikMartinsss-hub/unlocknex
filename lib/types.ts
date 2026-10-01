@@ -76,6 +76,7 @@ export type Ticket = {
   priority: 'baixa' | 'normal' | 'alta';
   closedAt: number | null;
   createdAt: number;
+  images?: string[];
 };
 
 export type TicketMessage = {

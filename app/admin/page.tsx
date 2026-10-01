@@ -292,6 +292,7 @@ function Admin() {
   };
 
   return (
+    <AppShell header="Administração">
       <div className="mx-auto max-w-2xl space-y-6">
         <div className="card-glass rounded-2xl p-6">
           <h2 className="text-lg font-bold text-zinc-100">Catálogo de serviços</h2>

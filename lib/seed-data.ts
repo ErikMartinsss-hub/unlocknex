@@ -156,7 +156,7 @@ export const remoteServicesSeed: Service[] =
 export const downloadsSeed: DownloadItem[] = [
   { id: 'dl-1', name: 'Anydesk Para Desbloqueios 💻', version: '7', description: 'Windows 7, 8, 10 e 11', category: 'ferramenta', url: 'https://mega.nz/file/950FRYIS#jtgZq-9AJlEvgWHjaLGFdiVcUNIRRpcRvjVKupgRAjw', isActive: true },
   { id: 'dl-2', name: 'Rustdesk', version: 'Atualizado', description: 'Acesso remoto', category: 'ferramenta', url: 'https://github.com/rustdesk/rustdesk/releases/download/1.4.9/rustdesk-1.4.9-x86_64.exe', isActive: true },
-  { id: 'dl-3', name: 'Octoplus - Pack remoto', version: '5.11', description: 'Senha: f5gsm.com.br', category: 'ferramenta', url: 'https://www.mediafire.com/file/n3bwqv5c80e022w/F5GSM+-+Pacote+Octoplus.zip/file', isActive: true },
+  { id: 'dl-3', name: 'Octoplus - Pack remoto', version: '5.11', description: 'Senha para extrair (WinRAR): f5gsm.com.br', category: 'ferramenta', url: 'https://www.mediafire.com/file/n3bwqv5c80e022w/F5GSM+-+Pacote+Octoplus.zip/file', isActive: true },
   { id: 'dl-4', name: 'Driver MTK 💻', version: 'All', description: 'MTK Auto installation drivers', category: 'driver', url: 'https://mega.nz/file/10U3iBiT#L9iKlwK1LU6AxaZjNYNI3VDULtEKqR0bU7M1iCrWb6w', imageUrl: 'https://i.ytimg.com/vi/RvtOz_2cYwk/maxresdefault.jpg', isActive: true },
   { id: 'dl-5', name: 'Driver UsbDK 💻', version: 'All', description: 'UsbDk devices', category: 'driver', url: 'https://github.com/daynix/UsbDk/releases/download/v1.00-22/UsbDk_1.0.22_x64.msi', isActive: true },
   { id: 'dl-6', name: 'USB Redirector Versão 1.97', version: 'V1.97', description: 'Conecta apenas com IP', category: 'ferramenta', url: 'https://www.mediafire.com/file/faxgqx3u4vr8afq/F5GSM+-+V1.97.exe/file', isActive: true },

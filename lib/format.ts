@@ -52,19 +52,19 @@ export function ticketStatus(status: string): StatusInfo {
 export function apiStatusLabel(status: string | undefined): string | null {
   if (!status) return null;
   const map: Record<string, string> = {
-    submetido: 'Enviado à HeartUnlocks',
+    submetido: 'Enviado para processamento',
     pending: 'Na fila',
     in_progress: 'Em processamento',
     processing: 'Em processamento',
-    success: 'Confirmado pela HeartUnlocks',
-    completed: 'Confirmado pela HeartUnlocks',
-    done: 'Confirmado pela HeartUnlocks',
-    rejected: 'Recusado pela HeartUnlocks',
-    failed: 'Falhou no provedor',
-    refunded: 'Reembolsado pelo provedor',
+    success: 'Confirmado pelo sistema',
+    completed: 'Confirmado pelo sistema',
+    done: 'Confirmado pelo sistema',
+    rejected: 'Recusado',
+    failed: 'Falha no processamento',
+    refunded: 'Reembolsado',
     cancelled: 'Cancelado',
     canceled: 'Cancelado',
-    error: 'Erro no provedor',
+    error: 'Erro no processamento',
   };
   return map[status.toLowerCase()] ?? status;
 }

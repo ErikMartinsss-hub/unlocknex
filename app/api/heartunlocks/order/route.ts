@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   if (!serviceSnap?.exists) return NextResponse.json({ ok: false, message: 'Serviço não encontrado.' }, { status: 400 });
   const service = serviceSnap.data() as ServiceDoc;
   if (service.provider !== 'auto' || !service.productUuid || !service.apiField) {
-    return NextResponse.json({ ok: false, message: 'Serviço não integrado à HeartUnlocks.' }, { status: 400 });
+    return NextResponse.json({ ok: false, message: 'Serviço ainda não integrado ao sistema automático.' }, { status: 400 });
   }
 
   const productUuid = service.productUuid;

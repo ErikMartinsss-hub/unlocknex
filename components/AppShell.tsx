@@ -67,6 +67,20 @@ export function AppShell({ children, header }: { children: React.ReactNode; head
               {item.name}
             </Link>
           ))}
+          {profile?.role === 'admin' && (
+            <Link
+              href="/admin"
+              onClick={() => setSidebarOpen(false)}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                isActive('/admin')
+                  ? 'bg-neon-500/10 text-neon-400 neon-glow-sm'
+                  : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100'
+              }`}
+            >
+              <Icon name="shield" className="h-5 w-5" />
+              Administração
+            </Link>
+          )}
         </nav>
 
         <div className="space-y-3 border-t border-zinc-800 p-4">

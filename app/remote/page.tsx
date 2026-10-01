@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
-import { remoteServicesSeed } from '@/lib/seed-data';
+import { useServices } from '@/lib/hooks';
 import { brl } from '@/lib/format';
 import { useAuth } from '@/components/AuthProvider';
 
@@ -17,14 +17,17 @@ export default function RemotePage() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<PriceFilter>('todos');
 
+  const todos = useServices();
+  const remote = useMemo(() => todos.filter((s) => s.categoryId === 'cat-remote'), [todos]);
+
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let out = remoteServicesSeed.filter((s) => !q || s.name.toLowerCase().includes(q));
+    let out = remote.filter((s) => !q || s.name.toLowerCase().includes(q));
     if (filter === 'baratos') out = out.filter((s) => s.price > 0 && s.price <= 6);
     if (filter === 'medios') out = out.filter((s) => s.price > 6 && s.price <= 21);
     if (filter === 'caros') out = out.filter((s) => s.price > 21);
     return out;
-  }, [query, filter]);
+  }, [query, filter, remote]);
 
   const rentHref = (id: string) => (user ? `/pedidos/novo?servico=${id}` : '/login');
 
@@ -131,10 +134,16 @@ export default function RemotePage() {
               </Reveal>
             ))}
           </div>
-          {list.length === 0 && (
+          {todos.length === 0 ? (
             <div className="card-glass rounded-2xl p-10 text-center text-zinc-500">
-              Nenhuma ferramenta encontrada com &quot;{query}&quot;.
+              Carregando ferramentas…
             </div>
+          ) : (
+            list.length === 0 && (
+              <div className="card-glass rounded-2xl p-10 text-center text-zinc-500">
+                Nenhuma ferramenta encontrada com &quot;{query}&quot;.
+              </div>
+            )
           )}
         </div>
       </main>

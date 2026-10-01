@@ -146,7 +146,8 @@ function Admin() {
           <div className="card-glass rounded-2xl p-6">
             <h2 className="text-lg font-bold text-zinc-100">Preços dos serviços</h2>
             <p className="mt-1 text-sm text-zinc-500">
-              Altere o preço e salve — vale na hora para todos os usuários. ({services.length} serviços)
+              Altere o preço e salve — vale na hora para todos. Use Ocultar/Exibir
+              para escolher o que aparece nas páginas. ({services.length} serviços)
             </p>
             <input
               value={busca}
@@ -168,7 +169,7 @@ function Admin() {
                     <p className="truncate text-sm font-medium text-zinc-200">{s.name}</p>
                     <p className="text-xs text-zinc-500">
                       Atual: <span className="font-bold text-neon-400">{brl(s.price)}</span>
-                      {s.isActive === false && ' • desativado'}
+                      {s.isActive === false && ' • oculto'}
                     </p>
                   </div>
                   <input
@@ -188,10 +189,10 @@ function Admin() {
                   <button
                     onClick={() => atualizarServico(s.id, { isActive: !(s.isActive !== false) })}
                     disabled={!!salvando[s.id]}
-                    title={s.isActive === false ? 'Ativar' : 'Desativar'}
+                    title={s.isActive === false ? 'Exibir nas páginas' : 'Ocultar das páginas'}
                     className="shrink-0 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-300 hover:border-zinc-500 disabled:opacity-50"
                   >
-                    {s.isActive === false ? 'Ativar' : 'Pausar'}
+                    {s.isActive === false ? 'Exibir' : 'Ocultar'}
                   </button>
                   {s.imageUrl ? (
                     <button

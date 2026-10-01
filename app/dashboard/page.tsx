@@ -15,7 +15,7 @@ function Dashboard() {
   const router = useRouter();
   const services = useServices();
   const orders = useOrders(profile?.uid, 8);
-  const quick = services.slice(0, 4);
+  const quick = services.filter((s) => s.isActive !== false).slice(0, 4);
   const concluded = orders.filter((o) => o.status === 'concluido').length;
   const inProgress = orders.filter((o) => o.status === 'processando' || o.status === 'pendente').length;
 

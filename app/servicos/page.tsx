@@ -15,6 +15,7 @@ function Servicos() {
   const [cat, setCat] = useState('todas');
 
   const filtered = services.filter((s) => {
+    if (s.isActive === false) return false;
     const matchesCat = cat === 'todas' || s.categoryId === cat;
     const q = query.trim().toLowerCase();
     const matchesQuery = !q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q);

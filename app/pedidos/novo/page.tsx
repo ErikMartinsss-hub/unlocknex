@@ -41,6 +41,10 @@ function NovoPedido() {
       setError(`Saldo insuficiente. Você precisa de ${brl(svc.price)} e tem ${brl(balance)}.`);
       return;
     }
+    if (svc.isActive === false) {
+      setError('Serviço indisponível no momento.');
+      return;
+    }
     setBusy(true);
     setError(null);
     const isAuto = svc.provider === 'auto';
@@ -121,11 +125,13 @@ function NovoPedido() {
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">Serviço</label>
               <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="input-dark" required>
                 <option value="">— Escolha um serviço —</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} — {brl(s.price)}
-                  </option>
-                ))}
+                {services
+                  .filter((s) => s.isActive !== false)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} — {brl(s.price)}
+                    </option>
+                  ))}
               </select>
             </div>
 

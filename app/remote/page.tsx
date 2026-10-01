@@ -18,7 +18,10 @@ export default function RemotePage() {
   const [filter, setFilter] = useState<PriceFilter>('todos');
 
   const todos = useServices();
-  const remote = useMemo(() => todos.filter((s) => s.categoryId === 'cat-remote'), [todos]);
+  const remote = useMemo(
+    () => todos.filter((s) => s.categoryId === 'cat-remote' && s.isActive !== false),
+    [todos]
+  );
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();

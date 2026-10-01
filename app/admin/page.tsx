@@ -20,6 +20,7 @@ function Admin() {
   const services = useServices();
   const [busca, setBusca] = useState('');
   const [rascunhos, setRascunhos] = useState<Record<string, string>>({});
+  const [linksImg, setLinksImg] = useState<Record<string, string>>({});
   const [salvando, setSalvando] = useState<Record<string, boolean>>({});
 
   const filtrados = useMemo(() => {
@@ -30,7 +31,7 @@ function Admin() {
     );
   }, [services, busca]);
 
-  const atualizarServico = async (serviceId: string, patch: { price?: number; isActive?: boolean }) => {
+  const atualizarServico = async (serviceId: string, patch: { price?: number; isActive?: boolean; imageUrl?: string }) => {
     setSalvando((m) => ({ ...m, [serviceId]: true }));
     try {
       const idToken = await user!.getIdToken();
@@ -47,6 +48,11 @@ function Admin() {
           delete c[serviceId];
           return c;
         });
+        setLinksImg((m) => {
+          const c = { ...m };
+          delete c[serviceId];
+          return c;
+        });
       } else {
         push(data.message ?? 'Falha ao salvar.', 'err');
       }
@@ -57,14 +63,30 @@ function Admin() {
     }
   };
 
-  const salvarPreco = (serviceId: string) => {
+  const salvarLinha = (serviceId: string) => {
+    const patch: { price?: number; imageUrl?: string } = {};
     const bruto = (rascunhos[serviceId] ?? '').replace(',', '.').trim();
-    const valor = Number(bruto);
-    if (bruto === '' || !Number.isFinite(valor) || valor < 0) {
-      push('Digite um preço válido.', 'err');
+    if (bruto !== '') {
+      const valor = Number(bruto);
+      if (!Number.isFinite(valor) || valor < 0) {
+        push('Digite um preço válido.', 'err');
+        return;
+      }
+      patch.price = Math.round(valor * 100) / 100;
+    }
+    const url = (linksImg[serviceId] ?? '').trim();
+    if (url !== '') {
+      if (!/^https?:\/\/.+\..+/.test(url)) {
+        push('URL da imagem inválida.', 'err');
+        return;
+      }
+      patch.imageUrl = url;
+    }
+    if (Object.keys(patch).length === 0) {
+      push('Nada para salvar.', 'err');
       return;
     }
-    atualizarServico(serviceId, { price: valor });
+    atualizarServico(serviceId, patch);
   };
 
   const sync = async () => {
@@ -138,7 +160,11 @@ function Admin() {
                   key={s.id}
                   className={`flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/50 p-3 ${s.isActive === false ? 'opacity-50' : ''}`}
                 >
-                  <div className="min-w-0 flex-1">
+                  {s.imageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={s.imageUrl} alt="" className="h-9 w-9 shrink-0 rounded-lg border border-zinc-800 object-cover" />
+                  ) : null}
+                  <div className="min-w-0 flex-1 basis-48">
                     <p className="truncate text-sm font-medium text-zinc-200">{s.name}</p>
                     <p className="text-xs text-zinc-500">
                       Atual: <span className="font-bold text-neon-400">{brl(s.price)}</span>
@@ -153,7 +179,7 @@ function Admin() {
                     className="input-dark w-28"
                   />
                   <button
-                    onClick={() => salvarPreco(s.id)}
+                    onClick={() => salvarLinha(s.id)}
                     disabled={!!salvando[s.id]}
                     className="btn-neon shrink-0 px-3 py-2 text-xs disabled:opacity-50"
                   >
@@ -167,6 +193,23 @@ function Admin() {
                   >
                     {s.isActive === false ? 'Ativar' : 'Pausar'}
                   </button>
+                  {s.imageUrl ? (
+                    <button
+                      onClick={() => atualizarServico(s.id, { imageUrl: '' })}
+                      disabled={!!salvando[s.id]}
+                      title="Remover imagem"
+                      className="shrink-0 rounded-lg border border-zinc-700 px-2.5 py-2 text-xs font-semibold text-zinc-400 hover:border-red-500/50 hover:text-red-400 disabled:opacity-50"
+                    >
+                      × img
+                    </button>
+                  ) : null}
+                  <input
+                    value={linksImg[s.id] ?? ''}
+                    onChange={(e) => setLinksImg((m) => ({ ...m, [s.id]: e.target.value }))}
+                    placeholder="URL da imagem/capa…"
+                    inputMode="url"
+                    className="input-dark w-full font-mono text-xs"
+                  />
                 </div>
               ))}
               {filtrados.length === 0 && (

@@ -1,12 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { collection, onSnapshot, orderBy, query, where, limit, type QueryConstraint } from 'firebase/firestore';
 import { getDbFirebase } from '@/lib/firebase';
 import type { DownloadItem, Order, Service, ServiceCategory, Ticket, TicketMessage, Transaction } from '@/lib/types';
 
-function useCollection<T>(name: string, constraints: QueryConstraint[] = [], deps: unknown[] = []): T[] {
+function useCollection<T>(
+  name: string,
+  constraints: QueryConstraint[] = [],
+  deps: unknown[] = [],
+  onError?: (msg: string) => void
+): T[] {
   const [rows, setRows] = useState<T[]>([]);
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
 
   const serialized = useMemo(() => constraints.map((c) => String(c)).join('|'), [constraints]);
   const depKey = JSON.stringify(deps);
@@ -23,7 +30,10 @@ function useCollection<T>(name: string, constraints: QueryConstraint[] = [], dep
         (err) => {
           // Erro comum: índice composto ausente no Firestore
           // (where + orderBy). O err.message traz o link para criar.
+          // Também pode ser regra de permissão não publicada (leitura negada
+          // em silêncio). Repassamos a mensagem para a página mostrar.
           console.error(`[firestore] falha ao ler '${name}':`, err);
+          onErrorRef.current?.(err instanceof Error ? err.message : String(err));
         }
       );
     } catch {
@@ -48,8 +58,8 @@ export function useServices(): Service[] {
   return useCollection<Service>('services', [orderBy('price')], []);
 }
 
-export function useDownloads(): DownloadItem[] {
-  return useCollection<DownloadItem>('downloads', [orderBy('name')], []);
+export function useDownloads(onError?: (msg: string) => void): DownloadItem[] {
+  return useCollection<DownloadItem>('downloads', [orderBy('name')], [], onError);
 }
 
 export function useOrders(userId: string | undefined, max = 50): Order[] {

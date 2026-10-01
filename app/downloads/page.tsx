@@ -7,9 +7,13 @@ import { useDownloads } from '@/lib/hooks';
 import { Icon } from '@/components/Icon';
 
 function Downloads() {
-  const downloads = useDownloads();
+  const [err, setErr] = useState<string | null>(null);
+  const downloads = useDownloads((msg) => setErr(msg));
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<'todas' | 'ferramenta' | 'driver'>('todas');
+
+  const erroPermissao = err && /permission|denied|Missing or insufficient/i.test(err);
+  const erroIndice = err && /index/i.test(err);
 
   const ativos = useMemo(() => downloads.filter((d) => d.isActive !== false), [downloads]);
 
@@ -152,6 +156,17 @@ function Downloads() {
           ))}
         </div>
 
+        {(erroPermissao || erroIndice) && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
+            <p className="font-bold">Não deu pra carregar os downloads.</p>
+            <p className="mt-1">
+              {erroPermissao
+                ? 'Isso é falta de permissão de leitura: o administrador precisa clicar em "Publicar regras do banco" no painel /admin (ou colar as regras no console do Firestore).'
+                : 'Falta um índice no Firestore: ' + err}
+            </p>
+            <p className="mt-1 opacity-70">{err}</p>
+          </div>
+        )}
         {filtrados.length === 0 ? (
           <div className="rounded-2xl border border-zinc-800 p-10 text-center text-sm text-zinc-500">
             {downloads.length === 0

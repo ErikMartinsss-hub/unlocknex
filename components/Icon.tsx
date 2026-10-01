@@ -42,6 +42,7 @@ const paths: Record<string, IconPath> = {
   alert: <><path d="M12 8v5M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></>,
   refresh: <><path d="M20 12a8 8 0 1 1-2.3-5.6" /><path d="M21 3v5h-5" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5h.01" /></>,
+  download: <><path d="M12 3v12m0 0 4-4m-4 4-4-4" /><path d="M4 21h16" /></>,
 };
 
 export function Icon({

@@ -85,3 +85,15 @@ export type TicketMessage = {
   body: string;
   createdAt: number;
 };
+
+export type DownloadCategory = 'ferramenta' | 'driver';
+
+export type DownloadItem = {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  category: DownloadCategory;
+  url: string;
+  isActive: boolean;
+};

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, orderBy, query, where, limit, type QueryConstraint } from 'firebase/firestore';
 import { getDbFirebase } from '@/lib/firebase';
-import type { Order, Service, ServiceCategory, Ticket, TicketMessage, Transaction } from '@/lib/types';
+import type { DownloadItem, Order, Service, ServiceCategory, Ticket, TicketMessage, Transaction } from '@/lib/types';
 
 function useCollection<T>(name: string, constraints: QueryConstraint[] = [], deps: unknown[] = []): T[] {
   const [rows, setRows] = useState<T[]>([]);
@@ -46,6 +46,10 @@ export function useCategories(): ServiceCategory[] {
 
 export function useServices(): Service[] {
   return useCollection<Service>('services', [orderBy('price')], []);
+}
+
+export function useDownloads(): DownloadItem[] {
+  return useCollection<DownloadItem>('downloads', [orderBy('name')], []);
 }
 
 export function useOrders(userId: string | undefined, max = 50): Order[] {

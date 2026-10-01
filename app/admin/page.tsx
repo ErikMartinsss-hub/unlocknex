@@ -5,7 +5,7 @@ import { RequireAuth } from '@/components/Guard';
 import { AppShell } from '@/components/AppShell';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/components/Toaster';
-import { useServices } from '@/lib/hooks';
+import { useDownloads, useServices } from '@/lib/hooks';
 import { brl } from '@/lib/format';
 
 function Admin() {
@@ -22,6 +22,22 @@ function Admin() {
   const [rascunhos, setRascunhos] = useState<Record<string, string>>({});
   const [linksImg, setLinksImg] = useState<Record<string, string>>({});
   const [salvando, setSalvando] = useState<Record<string, boolean>>({});
+
+  // --- Central de Downloads ---
+  const downloads = useDownloads();
+  const [dlBusca, setDlBusca] = useState('');
+  const [dlLinks, setDlLinks] = useState<Record<string, string>>({});
+  const [dlSalvando, setDlSalvando] = useState<Record<string, boolean>>({});
+  const [dlBusy, setDlBusy] = useState(false);
+  const [dlResult, setDlResult] = useState<string | null>(null);
+
+  const dlFiltrados = useMemo(() => {
+    const q = dlBusca.trim().toLowerCase();
+    if (!q) return downloads;
+    return downloads.filter(
+      (d) => d.name.toLowerCase().includes(q) || d.id.toLowerCase().includes(q)
+    );
+  }, [downloads, dlBusca]);
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -122,6 +138,74 @@ function Admin() {
     }
   };
 
+  const atualizarDownload = async (downloadId: string, patch: { url?: string; isActive?: boolean }) => {
+    setDlSalvando((m) => ({ ...m, [downloadId]: true }));
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/downloads/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ downloadId, ...patch }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as { ok?: boolean; message?: string };
+      if (res.ok && data.ok) {
+        push('Salvo!', 'ok');
+        setDlLinks((m) => {
+          const c = { ...m };
+          delete c[downloadId];
+          return c;
+        });
+      } else {
+        push(data.message ?? 'Falha ao salvar.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setDlSalvando((m) => ({ ...m, [downloadId]: false }));
+    }
+  };
+
+  const salvarDownload = (downloadId: string) => {
+    const url = (dlLinks[downloadId] ?? '').trim();
+    if (url !== '') {
+      if (!/^https?:\/\/.+/.test(url)) {
+        push('URL inválida (precisa começar com http:// ou https://).', 'err');
+        return;
+      }
+      atualizarDownload(downloadId, { url });
+      return;
+    }
+    push('Cole a URL do download primeiro.', 'err');
+  };
+
+  const syncDownloads = async () => {
+    setDlBusy(true);
+    setDlResult(null);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/sync-downloads', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        downloads?: number;
+        message?: string;
+      };
+      if (res.ok && data.ok) {
+        setDlResult(`Downloads sincronizados: ${data.downloads} itens.`);
+        push('Central de downloads sincronizada.', 'ok');
+      } else {
+        setDlResult(data.message ?? 'Falha na sincronização.');
+        push(data.message ?? 'Falha na sincronização.', 'err');
+      }
+    } catch {
+      setDlResult('Falha na comunicação. Tente novamente.');
+    } finally {
+      setDlBusy(false);
+    }
+  };
+
   return (
     <AppShell header="Administração">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -215,6 +299,72 @@ function Admin() {
               ))}
               {filtrados.length === 0 && (
                 <p className="py-6 text-center text-sm text-zinc-500">Nenhum serviço encontrado.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="card-glass rounded-2xl p-6">
+            <h2 className="text-lg font-bold text-zinc-100">Central de Downloads</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Sincroniza o catálogo do código e preenche os links dos programas. O que tiver
+              link salvo aparece na página Downloads para os técnicos. ({downloads.length} itens)
+            </p>
+            <button onClick={syncDownloads} disabled={dlBusy} className="btn-neon mt-4 px-5 py-2.5 text-sm disabled:opacity-50">
+              {dlBusy ? 'Sincronizando…' : 'Sincronizar downloads'}
+            </button>
+            {dlResult && <p className="mt-3 text-sm text-zinc-300">{dlResult}</p>}
+
+            <input
+              value={dlBusca}
+              onChange={(e) => setDlBusca(e.target.value)}
+              placeholder="Buscar download…"
+              className="input-dark mt-4"
+            />
+            <div className="mt-4 max-h-[480px] space-y-2 overflow-y-auto pr-1">
+              {dlFiltrados.map((d) => (
+                <div
+                  key={d.id}
+                  className={`flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/50 p-3 ${d.isActive === false ? 'opacity-50' : ''}`}
+                >
+                  <div className="min-w-0 flex-1 basis-48">
+                    <p className="truncate text-sm font-medium text-zinc-200">{d.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      <span className={`font-semibold ${d.category === 'driver' ? 'text-cyan-400' : 'text-neon-400'}`}>
+                        {d.category === 'driver' ? 'Driver' : 'Ferramenta'}
+                      </span>
+                      {d.version && <> • v{d.version}</>}
+                      {d.isActive === false && ' • oculto'}
+                      {!d.url && ' • sem link'}
+                    </p>
+                  </div>
+                  <input
+                    value={dlLinks[d.id] ?? ''}
+                    onChange={(e) => setDlLinks((m) => ({ ...m, [d.id]: e.target.value }))}
+                    placeholder={d.url || 'Cole o link do download…'}
+                    inputMode="url"
+                    className="input-dark w-full font-mono text-xs"
+                  />
+                  <button
+                    onClick={() => salvarDownload(d.id)}
+                    disabled={!!dlSalvando[d.id]}
+                    className="btn-neon shrink-0 px-3 py-2 text-xs disabled:opacity-50"
+                  >
+                    {dlSalvando[d.id] ? '…' : 'Salvar link'}
+                  </button>
+                  <button
+                    onClick={() => atualizarDownload(d.id, { isActive: !(d.isActive !== false) })}
+                    disabled={!!dlSalvando[d.id]}
+                    title={d.isActive === false ? 'Exibir na página' : 'Ocultar da página'}
+                    className="shrink-0 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-300 hover:border-zinc-500 disabled:opacity-50"
+                  >
+                    {d.isActive === false ? 'Exibir' : 'Ocultar'}
+                  </button>
+                </div>
+              ))}
+              {dlFiltrados.length === 0 && (
+                <p className="py-6 text-center text-sm text-zinc-500">Nenhum download encontrado.</p>
               )}
             </div>
           </div>

@@ -36,6 +36,10 @@ function useCollection<T>(name: string, constraints: QueryConstraint[] = [], dep
   return rows;
 }
 
+function sortByCreatedAtDesc<T extends { createdAt?: number }>(rows: T[]): T[] {
+  return rows.slice().sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
 export function useCategories(): ServiceCategory[] {
   return useCollection<ServiceCategory>('categories', [orderBy('name')], []);
 }
@@ -45,33 +49,43 @@ export function useServices(): Service[] {
 }
 
 export function useOrders(userId: string | undefined, max = 50): Order[] {
-  const constraints: QueryConstraint[] = useMemo(() => {
-    if (!userId) return [];
-    return [where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(max)];
-  }, [userId, max]);
-  return useCollection<Order>('orders', constraints, [userId, max]);
+  // Sem orderBy no servidor (evita exigir índice composto): filtra por dono,
+  // ordena e corta no cliente.
+  const fetchMax = Math.max(max, 100);
+  const rows = useCollection<Order>(
+    'orders',
+    userId ? [where('userId', '==', userId), limit(fetchMax)] : [],
+    [userId, fetchMax]
+  );
+  return useMemo(() => sortByCreatedAtDesc(rows).slice(0, max), [rows, max]);
 }
 
 export function useTickets(userId: string | undefined): Ticket[] {
-  const constraints: QueryConstraint[] = useMemo(() => {
-    if (!userId) return [];
-    return [where('userId', '==', userId), orderBy('createdAt', 'desc')];
-  }, [userId]);
-  return useCollection<Ticket>('tickets', constraints, [userId]);
+  const rows = useCollection<Ticket>(
+    'tickets',
+    userId ? [where('userId', '==', userId), limit(100)] : [],
+    [userId]
+  );
+  return useMemo(() => sortByCreatedAtDesc(rows), [rows]);
 }
 
 export function useTicketMessages(ticketId: string | null): TicketMessage[] {
-  const constraints: QueryConstraint[] = useMemo(() => {
-    if (!ticketId) return [];
-    return [where('ticketId', '==', ticketId), orderBy('createdAt', 'asc')];
-  }, [ticketId]);
-  return useCollection<TicketMessage>('ticketMessages', constraints, [ticketId]);
+  const rows = useCollection<TicketMessage>(
+    'ticketMessages',
+    ticketId ? [where('ticketId', '==', ticketId), limit(200)] : [],
+    [ticketId]
+  );
+  return useMemo(
+    () => rows.slice().sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0)),
+    [rows]
+  );
 }
 
 export function useTransactions(userId: string | undefined): Transaction[] {
-  const constraints: QueryConstraint[] = useMemo(() => {
-    if (!userId) return [];
-    return [where('userId', '==', userId), orderBy('createdAt', 'desc')];
-  }, [userId]);
-  return useCollection<Transaction>('transactions', constraints, [userId]);
+  const rows = useCollection<Transaction>(
+    'transactions',
+    userId ? [where('userId', '==', userId), limit(200)] : [],
+    [userId]
+  );
+  return useMemo(() => sortByCreatedAtDesc(rows), [rows]);
 }

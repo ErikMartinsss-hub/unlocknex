@@ -61,11 +61,13 @@ export type Transaction = {
   id: string;
   userId: string;
   amount: number;
-  type: 'deposit' | 'refund' | 'charge';
+  type: 'deposit' | 'refund' | 'charge' | 'credit';
   status: 'pendente' | 'concluido' | 'cancelado';
   paymentMethod: string | null;
   reference: string | null;
   createdAt: number;
+  note?: string | null;
+  by?: string | null;
 };
 
 export type Ticket = {

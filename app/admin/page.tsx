@@ -34,6 +34,12 @@ function Admin() {
   const [dlBusy, setDlBusy] = useState(false);
   const [dlResult, setDlResult] = useState<string | null>(null);
 
+  // --- Créditos de teste ---
+  const [credEmail, setCredEmail] = useState('');
+  const [credAmount, setCredAmount] = useState('');
+  const [credBusy, setCredBusy] = useState(false);
+  const [credResult, setCredResult] = useState<string | null>(null);
+
   const dlFiltrados = useMemo(() => {
     const q = dlBusca.trim().toLowerCase();
     if (!q) return downloads;
@@ -250,8 +256,42 @@ function Admin() {
     }
   };
 
+  const addCredits = async () => {
+    if (!credEmail.trim()) {
+      push('Digite o e-mail da conta.', 'err');
+      return;
+    }
+    const v = Number(credAmount);
+    if (!Number.isFinite(v) || v <= 0) {
+      push('Digite um valor maior que zero (ex.: 50).', 'err');
+      return;
+    }
+    setCredBusy(true);
+    setCredResult(null);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ email: credEmail.trim(), amount: v }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as { ok?: boolean; message?: string };
+      if (res.ok && data.ok) {
+        setCredResult(data.message ?? 'Créditos adicionados.');
+        push('Créditos adicionados!', 'ok');
+        setCredAmount('');
+      } else {
+        setCredResult(data.message ?? 'Falha ao adicionar créditos.');
+        push(data.message ?? 'Falha ao adicionar créditos.', 'err');
+      }
+    } catch {
+      setCredResult('Falha na comunicação. Tente novamente.');
+    } finally {
+      setCredBusy(false);
+    }
+  };
+
   return (
-    <AppShell header="Administração">
       <div className="mx-auto max-w-2xl space-y-6">
         <div className="card-glass rounded-2xl p-6">
           <h2 className="text-lg font-bold text-zinc-100">Catálogo de serviços</h2>
@@ -434,6 +474,43 @@ function Admin() {
                 <p className="py-6 text-center text-sm text-zinc-500">Nenhum download encontrado.</p>
               )}
             </div>
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="card-glass rounded-2xl p-6">
+            <h2 className="text-lg font-bold text-zinc-100">Créditos de teste</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Encontra a conta pelo e-mail e adiciona créditos direto no saldo — pra testar
+              pagamentos sem pagar PIX toda vez. Fica registrado no histórico do usuário
+              como "Créditos de teste".
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_150px_auto]">
+              <input
+                type="email"
+                value={credEmail}
+                onChange={(e) => setCredEmail(e.target.value)}
+                placeholder="E-mail da conta…"
+                className="input-dark"
+              />
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={credAmount}
+                onChange={(e) => setCredAmount(e.target.value)}
+                placeholder="R$ 0,00"
+                className="input-dark"
+              />
+              <button
+                onClick={addCredits}
+                disabled={credBusy}
+                className="btn-neon px-5 py-2.5 text-sm disabled:opacity-50"
+              >
+                {credBusy ? 'Adicionando…' : 'Adicionar créditos'}
+              </button>
+            </div>
+            {credResult && <p className="mt-3 text-sm text-zinc-300">{credResult}</p>}
           </div>
         )}
       </div>

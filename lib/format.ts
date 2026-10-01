@@ -77,6 +77,8 @@ export function transactionType(type: string): StatusInfo {
       return { label: 'Reembolso', className: 'text-neon-400' };
     case 'charge':
       return { label: 'Pagamento de pedido', className: 'text-zinc-400' };
+    case 'credit':
+      return { label: 'Créditos de teste', className: 'text-emerald-400' };
     default:
       return { label: type, className: 'text-zinc-400' };
   }

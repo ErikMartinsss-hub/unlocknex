@@ -76,9 +76,19 @@ function Servicos() {
             return (
               <div key={s.id} className="card-glass group flex flex-col rounded-2xl p-5 transition hover:-translate-y-0.5 hover:border-neon-500/40">
                 <div className="flex items-center justify-between">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${color}1a`, color }}>
-                    <Icon name={icon} className="h-5 w-5" />
-                  </span>
+                  {s.imageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={s.imageUrl}
+                      alt={s.name}
+                      loading="lazy"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-zinc-800 object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${color}1a`, color }}>
+                      <Icon name={icon} className="h-5 w-5" />
+                    </span>
+                  )}
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-500">
                     <Icon name="clock" className="h-3.5 w-3.5" />
                     {s.deliveryTime}

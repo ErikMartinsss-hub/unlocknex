@@ -80,10 +80,14 @@ function Admin() {
         ok?: boolean;
         categories?: number;
         services?: number;
+        images?: number;
         message?: string;
       };
       if (res.ok && data.ok) {
-        setResult(`Catálogo sincronizado: ${data.categories} categorias, ${data.services} serviços.`);
+        setResult(
+          `Catálogo sincronizado: ${data.categories} categorias, ${data.services} serviços` +
+            (data.images ? `, ${data.images} com imagem.` : '.')
+        );
         push('Catálogo sincronizado com sucesso.', 'ok');
       } else {
         setResult(data.message ?? 'Falha na sincronização.');

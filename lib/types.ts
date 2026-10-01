@@ -37,6 +37,7 @@ export type Service = {
   productUuid?: string | null;
   apiField?: string | null;
   apiExtra?: ServiceFieldDef[] | null;
+  imageUrl?: string | null;
 };
 
 export type Order = {

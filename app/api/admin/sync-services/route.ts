@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { categoriesSeed, servicesSeed, remoteServicesSeed } from '@/lib/seed-data';
+import { huGetProducts } from '@/lib/heartunlocks';
 
 export const runtime = 'nodejs';
 
@@ -59,5 +60,28 @@ export async function POST(req: NextRequest) {
     }
   });
 
-  return NextResponse.json({ ok: true, categories: categoriesSeed.length, services: services.length });
+  // Imagens: puxa image_url do catálogo HeartUnlocks para os serviços
+  // automáticos (mapeados por product_id numérico). Falha aqui não
+  // quebra o sync do catálogo.
+  let images = 0;
+  try {
+    const catalog = await huGetProducts();
+    const byId = catalog.products ?? {};
+    const auto = services.filter((s) => {
+      const r = s as unknown as { provider?: string; productUuid?: string | null };
+      return r.provider === 'auto' && !!r.productUuid && /^\d+$/.test(r.productUuid);
+    });
+    await chunked(auto, 10, async (s) => {
+      const r = s as unknown as { id: string; productUuid: string };
+      const img = byId[r.productUuid]?.image_url;
+      if (img) {
+        await db.doc(`services/${r.id}`).set({ imageUrl: img }, { merge: true });
+        images++;
+      }
+    });
+  } catch (e) {
+    console.warn('[sync] imagens HeartUnlocks falharam:', e instanceof Error ? e.message : e);
+  }
+
+  return NextResponse.json({ ok: true, categories: categoriesSeed.length, services: services.length, images });
 }

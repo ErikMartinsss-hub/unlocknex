@@ -112,9 +112,19 @@ export default function RemotePage() {
               <Reveal key={s.id} delay={(i % 9) * 50}>
                 <div className="card-glass group flex h-full flex-col rounded-2xl p-5 transition hover:-translate-y-1 hover:border-neon-500/40 hover:shadow-[0_0_26px_-8px_rgba(0,255,102,0.45)]">
                   <div className="flex items-start justify-between gap-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neon-500/10 text-neon-400 transition-transform duration-300 group-hover:scale-110">
-                      <Icon name="wrench" className="h-5.5 w-5.5" />
-                    </span>
+                    {s.imageUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={s.imageUrl}
+                        alt={s.name}
+                        loading="lazy"
+                        className="h-11 w-11 shrink-0 rounded-xl border border-zinc-800 object-cover transition-transform duration-300 group-hover:scale-110"
+                      />
+                    ) : (
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neon-500/10 text-neon-400 transition-transform duration-300 group-hover:scale-110">
+                        <Icon name="wrench" className="h-5.5 w-5.5" />
+                      </span>
+                    )}
                     <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-neon-500/25 bg-neon-500/5 px-2.5 py-1 text-[11px] font-semibold text-neon-400">
                       <Icon name="clock" className="h-3 w-3" />
                       {s.deliveryTime}

@@ -27,6 +27,20 @@ export async function POST(req: NextRequest) {
   }
 
   const col = db.collection('services');
+
+  // Suporta remoção individual: body { ids: [...] } remove só esses.
+  const body = (await req.json().catch(() => null)) as { ids?: string[] } | null;
+  const ids = body && Array.isArray(body.ids) ? body.ids.filter((i) => typeof i === 'string' && i) : [];
+
+  if (ids.length > 0) {
+    for (let i = 0; i < ids.length; i += 400) {
+      const batch = db.batch();
+      ids.slice(i, i + 400).forEach((id) => batch.delete(col.doc(id)));
+      await batch.commit();
+    }
+    return NextResponse.json({ ok: true, removed: ids.length });
+  }
+
   let removed = 0;
   // Deleta em lotes de até 400 (limite de uma escrita em lote).
   while (true) {

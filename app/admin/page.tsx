@@ -48,8 +48,9 @@ function Admin() {
   const [catErro, setCatErro] = useState<string | null>(null);
   const [apiBusca, setApiBusca] = useState('');
   const [apiPrecos, setApiPrecos] = useState<Record<string, string>>({});
-  const [apiCatServico, setApiCatServico] = useState('cat-frp');
+  const [apiDestino, setApiDestino] = useState<Record<string, string>>({});
   const [apiAdding, setApiAdding] = useState<Record<string, 'remote' | 'servico'>>({});
+  const [removendo, setRemovendo] = useState<Record<string, boolean>>({});
 
   const dlFiltrados = useMemo(() => {
     const q = dlBusca.trim().toLowerCase();
@@ -336,6 +337,37 @@ function Admin() {
     }
   };
 
+  const removerServico = async (id: string, name: string) => {
+    if (!window.confirm(`Remover "${name}" das páginas?`)) return;
+    setRemovendo((m) => ({ ...m, [id]: true }));
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/services/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ ids: [id] }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        removed?: number;
+        message?: string;
+      };
+      if (res.ok && data.ok) {
+        push(`Removido: ${name}`, 'ok');
+      } else {
+        push(data.message ?? 'Falha ao remover.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setRemovendo((m) => {
+        const c = { ...m };
+        delete c[id];
+        return c;
+      });
+    }
+  };
+
   const carregarCatalogo = async () => {
     setCatBusy(true);
     setCatErro(null);
@@ -371,17 +403,17 @@ function Admin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
-  const adicionarApi = async (p: ApiProd, destino: 'remote' | 'servico') => {
+  const adicionarApi = async (p: ApiProd, categoryId: string) => {
     const price = Number(apiPrecos[p.uuid]);
     if (!Number.isFinite(price) || price <= 0) {
       push(`Defina o preço de "${p.name}".`, 'err');
       return;
     }
+    const destino: 'remote' | 'servico' = categoryId === 'cat-remote' ? 'remote' : 'servico';
     setApiAdding((m) => ({ ...m, [p.uuid]: destino }));
     try {
       const idToken = await user!.getIdToken();
-      const categoryId = destino === 'remote' ? 'cat-remote' : apiCatServico;
-      const apiField = destino === 'remote' ? 'Quantity' : p.field || 'Serial';
+      const apiField = categoryId === 'cat-remote' ? 'Quantity' : p.field || 'Serial';
       const res = await fetch('/api/admin/services/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
@@ -510,6 +542,14 @@ function Admin() {
                     className="shrink-0 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-300 hover:border-zinc-500 disabled:opacity-50"
                   >
                     {s.isActive === false ? 'Exibir' : 'Ocultar'}
+                  </button>
+                  <button
+                    onClick={() => removerServico(s.id, s.name)}
+                    disabled={!!salvando[s.id] || !!removendo[s.id]}
+                    title="Remover este serviço das páginas"
+                    className="shrink-0 rounded-lg border border-red-500/40 px-3 py-2 text-xs font-semibold text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+                  >
+                    {removendo[s.id] ? '…' : 'Remover'}
                   </button>
                   {s.imageUrl ? (
                     <button
@@ -659,8 +699,9 @@ function Admin() {
               <div>
                 <h2 className="text-lg font-bold text-zinc-100">Adicionar serviços da API</h2>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Catálogo completo da API — adicione um por um no Aluguel de Ferramentas
-                  ou nos Serviços, definindo o preço que aparece pro cliente. ({catalog.length} produtos)
+                  Catálogo completo da API — em cada produto, escolha a página
+                  (Aluguel ou Serviços), defina o preço e clique em Adicionar.
+                  ({catalog.length} produtos)
                 </p>
               </div>
               <button
@@ -678,25 +719,13 @@ function Admin() {
               </p>
             )}
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4">
               <input
                 value={apiBusca}
                 onChange={(e) => setApiBusca(e.target.value)}
                 placeholder="Buscar produto na API…"
-                className="input-dark w-full sm:w-72"
+                className="input-dark w-full"
               />
-              <select
-                value={apiCatServico}
-                onChange={(e) => setApiCatServico(e.target.value)}
-                className="input-dark flex-1 sm:max-w-xs"
-                title="Categoria usada pelo botão + Serviço"
-              >
-                {catServicos.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div className="mt-4 max-h-[520px] space-y-2 overflow-y-auto pr-1">
@@ -710,12 +739,25 @@ function Admin() {
                   key={p.uuid}
                   className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/50 p-3"
                 >
-                  <div className="min-w-0 flex-1 basis-56">
+                  <div className="min-w-0 flex-1 basis-52">
                     <p className="truncate text-sm font-medium text-zinc-200">{p.name}</p>
                     <p className="text-xs text-zinc-500">
                       API {p.price > 0 ? `• ${brl(p.price)}` : ''}{' '}
                       {existeUuid.has(p.uuid) ? '• ✓ já cadastrado' : ''}
                     </p>
+                    <select
+                      value={apiDestino[p.uuid] ?? 'cat-remote'}
+                      onChange={(e) => setApiDestino((m) => ({ ...m, [p.uuid]: e.target.value }))}
+                      className="input-dark mt-2 w-full text-xs"
+                      title="Página onde o serviço vai aparecer"
+                    >
+                      <option value="cat-remote">Página: Aluguel de Ferramentas</option>
+                      {catServicos.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          Página: {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <input
                     value={apiPrecos[p.uuid] ?? ''}
@@ -725,18 +767,11 @@ function Admin() {
                     className="input-dark w-24"
                   />
                   <button
-                    onClick={() => adicionarApi(p, 'remote')}
-                    disabled={!!apiAdding[p.uuid]}
-                    className="rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-50"
-                  >
-                    {apiAdding[p.uuid] === 'remote' ? '…' : '+ Aluguel'}
-                  </button>
-                  <button
-                    onClick={() => adicionarApi(p, 'servico')}
+                    onClick={() => adicionarApi(p, apiDestino[p.uuid] ?? 'cat-remote')}
                     disabled={!!apiAdding[p.uuid]}
                     className="btn-neon px-3 py-2 text-xs disabled:opacity-50"
                   >
-                    {apiAdding[p.uuid] === 'servico' ? '…' : '+ Serviço'}
+                    {apiAdding[p.uuid] ? '…' : '+ Adicionar'}
                   </button>
                 </div>
               ))}

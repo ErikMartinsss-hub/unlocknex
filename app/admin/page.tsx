@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RequireAuth } from '@/components/Guard';
 import { AppShell } from '@/components/AppShell';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/components/Toaster';
-import { useDownloads, useServices } from '@/lib/hooks';
+import { useCategories, useDownloads, useServices } from '@/lib/hooks';
 import { brl } from '@/lib/format';
 
 function Admin() {
@@ -39,6 +39,16 @@ function Admin() {
   const [credAmount, setCredAmount] = useState('');
   const [credBusy, setCredBusy] = useState(false);
   const [credResult, setCredResult] = useState<string | null>(null);
+
+  // --- Catálogo da API (adicionar serviços um a um) ---
+  type ApiProd = { uuid: string; name: string; price: number; imageUrl: string; field: string };
+  const [catalog, setCatalog] = useState<ApiProd[]>([]);
+  const [catBusy, setCatBusy] = useState(false);
+  const [catErro, setCatErro] = useState<string | null>(null);
+  const [apiBusca, setApiBusca] = useState('');
+  const [apiPrecos, setApiPrecos] = useState<Record<string, string>>({});
+  const [apiCatServico, setApiCatServico] = useState('cat-frp');
+  const [apiAdding, setApiAdding] = useState<Record<string, 'remote' | 'servico'>>({});
 
   const dlFiltrados = useMemo(() => {
     const q = dlBusca.trim().toLowerCase();
@@ -291,6 +301,91 @@ function Admin() {
     }
   };
 
+  const carregarCatalogo = async () => {
+    setCatBusy(true);
+    setCatErro(null);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/catalog', { headers: { Authorization: `Bearer ${idToken}` } });
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        products?: ApiProd[];
+        message?: string;
+      } | null;
+      if (res.ok && data?.ok) {
+        setCatalog(data.products ?? []);
+        setApiPrecos((m) => {
+          const next = { ...m };
+          (data.products ?? []).forEach((p) => {
+            if (!(p.uuid in next)) next[p.uuid] = p.price ? String(p.price) : '';
+          });
+          return next;
+        });
+      } else {
+        setCatErro(data?.message ?? 'Falha ao carregar o catálogo.');
+      }
+    } catch {
+      setCatErro('Falha na comunicação. Tente novamente.');
+    } finally {
+      setCatBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin) carregarCatalogo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  const adicionarApi = async (p: ApiProd, destino: 'remote' | 'servico') => {
+    const price = Number(apiPrecos[p.uuid]);
+    if (!Number.isFinite(price) || price <= 0) {
+      push(`Defina o preço de "${p.name}".`, 'err');
+      return;
+    }
+    setApiAdding((m) => ({ ...m, [p.uuid]: destino }));
+    try {
+      const idToken = await user!.getIdToken();
+      const categoryId = destino === 'remote' ? 'cat-remote' : apiCatServico;
+      const apiField = destino === 'remote' ? 'Quantity' : p.field || 'Serial';
+      const res = await fetch('/api/admin/services/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ uuid: p.uuid, name: p.name, price, categoryId, apiField, imageUrl: p.imageUrl }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as { ok?: boolean; message?: string };
+      if (res.ok && data.ok) {
+        push(`Adicionado: ${p.name}`, 'ok');
+      } else {
+        push(data.message ?? 'Falha ao adicionar.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setApiAdding((m) => {
+        const c = { ...m };
+        delete c[p.uuid];
+        return c;
+      });
+    }
+  };
+
+  const categorias = useCategories();
+  const catServicos = categorias.filter((c) => c.id !== 'cat-remote');
+
+  const existeUuid = useMemo(() => {
+    const s = new Set<string>();
+    services.forEach((sv) => {
+      if (sv.productUuid) s.add(sv.productUuid);
+    });
+    return s;
+  }, [services]);
+
+  const catalogFiltrado = useMemo(() => {
+    const q = apiBusca.trim().toLowerCase();
+    if (!q) return catalog;
+    return catalog.filter((p) => p.name.toLowerCase().includes(q));
+  }, [catalog, apiBusca]);
+
   return (
     <AppShell header="Administração">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -512,6 +607,97 @@ function Admin() {
               </button>
             </div>
             {credResult && <p className="mt-3 text-sm text-zinc-300">{credResult}</p>}
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="card-glass rounded-2xl p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-zinc-100">Adicionar serviços da API</h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Catálogo completo da API — adicione um por um no Aluguel de Ferramentas
+                  ou nos Serviços, definindo o preço que aparece pro cliente. ({catalog.length} produtos)
+                </p>
+              </div>
+              <button
+                onClick={carregarCatalogo}
+                disabled={catBusy}
+                className="rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-300 hover:border-neon-500/50 hover:text-neon-400 disabled:opacity-50"
+              >
+                {catBusy ? 'Atualizando…' : 'Atualizar catálogo'}
+              </button>
+            </div>
+
+            {catErro && (
+              <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                {catErro}
+              </p>
+            )}
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <input
+                value={apiBusca}
+                onChange={(e) => setApiBusca(e.target.value)}
+                placeholder="Buscar produto na API…"
+                className="input-dark w-full sm:w-72"
+              />
+              <select
+                value={apiCatServico}
+                onChange={(e) => setApiCatServico(e.target.value)}
+                className="input-dark flex-1 sm:max-w-xs"
+                title="Categoria usada pelo botão + Serviço"
+              >
+                {catServicos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-4 max-h-[520px] space-y-2 overflow-y-auto pr-1">
+              {catalogFiltrado.length === 0 && (
+                <p className="py-6 text-center text-sm text-zinc-500">
+                  {catBusy ? 'Carregando catálogo…' : 'Nenhum produto encontrado.'}
+                </p>
+              )}
+              {catalogFiltrado.map((p) => (
+                <div
+                  key={p.uuid}
+                  className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/50 p-3"
+                >
+                  <div className="min-w-0 flex-1 basis-56">
+                    <p className="truncate text-sm font-medium text-zinc-200">{p.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      API {p.price > 0 ? `• ${brl(p.price)}` : ''}{' '}
+                      {existeUuid.has(p.uuid) ? '• ✓ já cadastrado' : ''}
+                    </p>
+                  </div>
+                  <input
+                    value={apiPrecos[p.uuid] ?? ''}
+                    onChange={(e) => setApiPrecos((m) => ({ ...m, [p.uuid]: e.target.value }))}
+                    placeholder="Preço R$"
+                    inputMode="decimal"
+                    className="input-dark w-24"
+                  />
+                  <button
+                    onClick={() => adicionarApi(p, 'remote')}
+                    disabled={!!apiAdding[p.uuid]}
+                    className="rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-50"
+                  >
+                    {apiAdding[p.uuid] === 'remote' ? '…' : '+ Aluguel'}
+                  </button>
+                  <button
+                    onClick={() => adicionarApi(p, 'servico')}
+                    disabled={!!apiAdding[p.uuid]}
+                    className="btn-neon px-3 py-2 text-xs disabled:opacity-50"
+                  >
+                    {apiAdding[p.uuid] === 'servico' ? '…' : '+ Serviço'}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

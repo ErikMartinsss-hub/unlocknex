@@ -15,6 +15,7 @@ function Admin() {
   const [result, setResult] = useState<string | null>(null);
   const [rulesBusy, setRulesBusy] = useState(false);
   const [rulesResult, setRulesResult] = useState<string | null>(null);
+  const [limparBusy, setLimparBusy] = useState(false);
 
   const isAdmin = profile?.role === 'admin';
 
@@ -301,6 +302,40 @@ function Admin() {
     }
   };
 
+  const limparCatalogo = async () => {
+    const total = services.length;
+    if (total === 0) {
+      push('O catálogo já está vazio.', 'err');
+      return;
+    }
+    const confirmou = window.confirm(
+      `Apagar TODOS os ${total} serviços do catálogo?\n\nAs páginas de Serviços e Aluguel ficam vazias até você adicionar de novo, um por um, pelo painel.`
+    );
+    if (!confirmou) return;
+    setLimparBusy(true);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/services/clear', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        removed?: number;
+        message?: string;
+      };
+      if (res.ok && data.ok) {
+        push(`Catálogo limpo: ${data.removed} serviços removidos.`, 'ok');
+      } else {
+        push(data.message ?? 'Falha ao limpar o catálogo.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setLimparBusy(false);
+    }
+  };
+
   const carregarCatalogo = async () => {
     setCatBusy(true);
     setCatErro(null);
@@ -409,6 +444,14 @@ function Admin() {
                 className="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-neon-500/50 hover:text-neon-400 disabled:opacity-50"
               >
                 {rulesBusy ? 'Publicando…' : 'Publicar regras do banco'}
+              </button>
+              <button
+                onClick={limparCatalogo}
+                disabled={limparBusy}
+                title="Apaga todos os serviços do catálogo"
+                className="rounded-lg border border-red-500/40 px-4 py-2.5 text-sm font-semibold text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10 disabled:opacity-50"
+              >
+                {limparBusy ? 'Limpando…' : 'Limpar tudo'}
               </button>
             </div>
           )}

@@ -13,7 +13,7 @@ import { brl } from '@/lib/format';
  * admin puxa da API aparece aqui na hora). Mostra uma amostra + atalhos por
  * categoria; o catálogo completo fica em /servicos.
  */
-export default function CatalogHome() {
+export function CatalogHome() {
   const [erro, setErro] = useState<string | null>(null);
   const categories = useCategories(setErro);
   const services = useServices(setErro);

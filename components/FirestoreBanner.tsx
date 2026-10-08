@@ -5,7 +5,7 @@
  * botão "Publicar regras do banco" ainda não ter sido clicado no /admin —
  * sem ele, as páginas públicas ficam em "Carregando…" para sempre).
  */
-export default function FirestoreBanner({ error }: { error: string | null }) {
+export function FirestoreBanner({ error }: { error: string | null }) {
   if (!error) return null;
   const pareceRegras = /permission|denied|unauthorized|rules|falha na leitura/i.test(error);
   return (

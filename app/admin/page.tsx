@@ -73,6 +73,13 @@ function Admin() {
   const [licCat, setLicCat] = useState('');
   const [licTipo, setLicTipo] = useState('');
   const [licDestino, setLicDestino] = useState('cat-licenca');
+  const [mvTipo, setMvTipo] = useState('');
+  const [mvCat, setMvCat] = useState('');
+  const [mvDestino, setMvDestino] = useState('cat-imei');
+  const [mvPreco, setMvPreco] = useState('');
+  const [mvPrazo, setMvPrazo] = useState('');
+  const [mvBusy, setMvBusy] = useState(false);
+  const [mvResult, setMvResult] = useState<{ moved: number; names: string[] } | null>(null);
   const [licBusy, setLicBusy] = useState(false);
   const [prazos, setPrazos] = useState<Record<string, string>>({});
   const [licStatus, setLicStatus] = useState<{
@@ -518,6 +525,46 @@ function Admin() {
       push('Falha na comunicação. Tente novamente.', 'err');
     } finally {
       setLicBusy(false);
+    }
+  };
+
+  const moverServicos = async () => {
+    if (!mvTipo && !mvCat) {
+      push('Escolha um tipo ou uma categoria da API para mover.', 'err');
+      return;
+    }
+    setMvBusy(true);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/services/mover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          tipo: mvTipo || undefined,
+          cid: mvCat || undefined,
+          destino: mvDestino,
+          price: mvPreco.trim() ? Number(mvPreco) : undefined,
+          deliveryTime: mvPrazo.trim() || undefined,
+        }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        moved?: number;
+        names?: string[];
+        message?: string;
+      };
+      if (res.ok && data.ok && typeof data.moved === 'number') {
+        setMvResult({ moved: data.moved, names: data.names ?? [] });
+        push(`Movidos: ${data.moved} serviço(s).`, 'ok');
+        setMvPreco('');
+        setMvPrazo('');
+      } else {
+        push(data.message ?? 'Falha ao mover.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setMvBusy(false);
     }
   };
 
@@ -1044,6 +1091,93 @@ function Admin() {
                 {licBusy ? 'Puxando…' : 'Puxar licenças da API'}
               </button>
             </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-3">
+              <p className="min-w-0 flex-1 basis-56 text-xs text-zinc-300">
+                <span className="font-bold text-cyan-400">Mover por categoria da API</span> — escolha
+                tipo e/ou categoria da API e a página de destino:{' '}
+                <span className="text-zinc-100">move os serviços que já estão no site</span> (sem
+                remover e puxar de novo). Preço e prazo são opcionais — se preencher, aplica em
+                todos os movidos.
+              </p>
+              <select
+                value={mvTipo}
+                onChange={(e) => setMvTipo(e.target.value)}
+                className="input-dark w-40"
+                title="Tipo na API (igual ao filtro Types da Heart)"
+              >
+                <option value="">Tipo: todos</option>
+                {Object.entries(apiTipos)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([t, n]) => (
+                    <option key={t} value={t}>
+                      {TIPO_LABELS[t] ?? t} ({n})
+                    </option>
+                  ))}
+              </select>
+              <select
+                value={mvCat}
+                onChange={(e) => setMvCat(e.target.value)}
+                className="input-dark w-44"
+                title="Categoria da API (deixe em 'todas' para usar só o tipo)"
+              >
+                <option value="">Categoria: todas</option>
+                {Object.entries(apiCats)
+                  .sort((a, b) => a[1].name.localeCompare(b[1].name))
+                  .map(([id, cat]) => (
+                    <option key={id} value={id}>
+                      {cat.name} ({apiCatCounts[id] ?? 0})
+                    </option>
+                  ))}
+              </select>
+              <select
+                value={mvDestino}
+                onChange={(e) => setMvDestino(e.target.value)}
+                className="input-dark w-44"
+                title="Página do site para onde os serviços vão"
+              >
+                {catServicos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    Página: {c.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={mvPreco}
+                onChange={(e) => setMvPreco(e.target.value)}
+                placeholder="Preço (opcional) R$"
+                inputMode="decimal"
+                className="input-dark w-32"
+              />
+              <input
+                value={mvPrazo}
+                onChange={(e) => setMvPrazo(e.target.value)}
+                placeholder="Prazo (opcional)"
+                className="input-dark w-36"
+              />
+              <button
+                onClick={moverServicos}
+                disabled={mvBusy}
+                className="btn-neon px-3.5 py-2 text-xs disabled:opacity-50"
+              >
+                {mvBusy ? 'Movendo…' : 'Mover para a página'}
+              </button>
+            </div>
+
+            {mvResult && (
+              <div className="mt-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3 text-xs">
+                <p className="font-semibold text-cyan-300">
+                  {mvResult.moved} serviço(s) movido(s).
+                </p>
+                {mvResult.names.length > 0 && (
+                  <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1 text-zinc-400">
+                    {mvResult.names.map((n) => (
+                      <li key={n}>• {n}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             {licStatus && (
               <div

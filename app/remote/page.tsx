@@ -8,16 +8,18 @@ import { Reveal } from '@/components/Reveal';
 import { useServices } from '@/lib/hooks';
 import { brl } from '@/lib/format';
 import { useAuth } from '@/components/AuthProvider';
+import { FirestoreBanner } from '@/components/FirestoreBanner';
 
 const prices = ['todos', 'baratos', 'medios', 'caros'] as const;
 type PriceFilter = (typeof prices)[number];
 
 export default function RemotePage() {
   const { user } = useAuth();
+  const [erro, setErro] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<PriceFilter>('todos');
 
-  const todos = useServices();
+  const todos = useServices(setErro);
   const remote = useMemo(
     () => todos.filter((s) => s.categoryId === 'cat-remote' && s.isActive !== false),
     [todos]
@@ -55,6 +57,9 @@ export default function RemotePage() {
 
       {/* Conteúdo */}
       <main className="mx-auto max-w-6xl px-4 pb-16 pt-10">
+        <div className="mb-6">
+          <FirestoreBanner error={erro} />
+        </div>
         <Reveal>
           <div className="text-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-neon-500/30 bg-neon-500/5 px-4 py-1.5 text-xs font-semibold text-neon-400">

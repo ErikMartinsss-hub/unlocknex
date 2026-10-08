@@ -80,6 +80,14 @@ function Admin() {
   const [mvPrazo, setMvPrazo] = useState('');
   const [mvBusy, setMvBusy] = useState(false);
   const [mvResult, setMvResult] = useState<{ moved: number; names: string[] } | null>(null);
+  const [orgPreco, setOrgPreco] = useState('');
+  const [orgPrazo, setOrgPrazo] = useState('');
+  const [orgRemote, setOrgRemote] = useState('cat-remote');
+  const [orgBusy, setOrgBusy] = useState(false);
+  const [orgResult, setOrgResult] = useState<{
+    added: number;
+    porPagina: { id: string; name: string; count: number }[];
+  } | null>(null);
   const [licBusy, setLicBusy] = useState(false);
   const [prazos, setPrazos] = useState<Record<string, string>>({});
   const [licStatus, setLicStatus] = useState<{
@@ -565,6 +573,42 @@ function Admin() {
       push('Falha na comunicação. Tente novamente.', 'err');
     } finally {
       setMvBusy(false);
+    }
+  };
+
+  const organizarTudo = async () => {
+    if (!orgPreco.trim()) {
+      push('Defina o preço padrão em R$ (usado nos serviços novos).', 'err');
+      return;
+    }
+    setOrgBusy(true);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/services/organizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          price: Number(orgPreco),
+          deliveryTime: orgPrazo.trim() || undefined,
+          defaultCat: orgRemote,
+        }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        added?: number;
+        porPagina?: { id: string; name: string; count: number }[];
+        message?: string;
+      };
+      if (res.ok && data.ok) {
+        setOrgResult({ added: data.added ?? 0, porPagina: data.porPagina ?? [] });
+        push('Catálogo puxado e organizado!', 'ok');
+      } else {
+        push(data.message ?? 'Falha ao organizar.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setOrgBusy(false);
     }
   };
 
@@ -1163,6 +1207,72 @@ function Admin() {
                 {mvBusy ? 'Movendo…' : 'Mover para a página'}
               </button>
             </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
+              <p className="min-w-0 flex-1 basis-56 text-xs text-zinc-300">
+                <span className="font-bold text-amber-400">Organizar tudo (um clique)</span> — puxa{' '}
+                <span className="text-zinc-100">TODOS</span> os serviços da API e distribui
+                automaticamente:{' '}
+                <span className="text-zinc-100">
+                  C501/C22 → Desbloqueio de Operadora · categorias FRP → FRP · IMEI → Reparo de
+                  IMEI · Server → Ativação de Licença.
+                </span>{' '}
+                Os que já existem são apenas <span className="text-zinc-100">movidos</span> para a
+                página certa (mantêm preço). Preço é usado só nos novos.
+              </p>
+              <input
+                value={orgPreco}
+                onChange={(e) => setOrgPreco(e.target.value)}
+                placeholder="Preço padrão R$"
+                inputMode="decimal"
+                className="input-dark w-32"
+                title="Preço padrão em R$ dos serviços novos"
+              />
+              <input
+                value={orgPrazo}
+                onChange={(e) => setOrgPrazo(e.target.value)}
+                placeholder="Prazo (opcional)"
+                className="input-dark w-36"
+              />
+              <select
+                value={orgRemote}
+                onChange={(e) => setOrgRemote(e.target.value)}
+                className="input-dark w-56"
+                title="Página dos 'Remote Service' e produtos sem grupo definido"
+              >
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    Remote/outros → {c.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={organizarTudo}
+                disabled={orgBusy}
+                className="btn-neon px-3.5 py-2 text-xs disabled:opacity-50"
+              >
+                {orgBusy ? 'Organizando…' : 'Puxar TUDO e organizar'}
+              </button>
+            </div>
+
+            {orgResult && (
+              <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+                <p className="font-semibold text-amber-300">
+                  {orgResult.added} serviço(s) novo(s) criado(s) · distribuído por página:
+                </p>
+                {orgResult.porPagina.length > 0 ? (
+                  <ul className="mt-2 space-y-1 text-zinc-300">
+                    {orgResult.porPagina.map((p) => (
+                      <li key={p.id}>
+                        • {p.name}: <b>{p.count}</b>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-zinc-400">Nada para mover — já estava tudo organizado.</p>
+                )}
+              </div>
+            )}
 
             {mvResult && (
               <div className="mt-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3 text-xs">

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Icon } from '@/components/Icon';
 import { Reveal } from '@/components/Reveal';
+import { CatalogHome } from '@/components/CatalogHome';
 import { categoriesSeed, servicesSeed, marcas, pagamentos } from '@/lib/seed-data';
 import { brl } from '@/lib/format';
 
@@ -176,8 +177,11 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Best Selling */}
-      <section id="servicos" className="mx-auto max-w-6xl px-4 py-16">
+      {/* Catálogo ao vivo (o que o admin puxa da API aparece aqui) */}
+      <CatalogHome />
+
+      {/* Destaques (exemplos do catálogo) */}
+      <section id="destaques" className="mx-auto max-w-6xl px-4 py-16">
         <SectionHead
           title="Mais vendidos"
           sub="Os serviços mais escolhidos pelos técnicos hoje."

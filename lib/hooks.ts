@@ -50,12 +50,12 @@ function sortByCreatedAtDesc<T extends { createdAt?: number }>(rows: T[]): T[] {
   return rows.slice().sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
 
-export function useCategories(): ServiceCategory[] {
-  return useCollection<ServiceCategory>('categories', [orderBy('name')], []);
+export function useCategories(onError?: (msg: string) => void): ServiceCategory[] {
+  return useCollection<ServiceCategory>('categories', [orderBy('name')], [], onError);
 }
 
-export function useServices(): Service[] {
-  return useCollection<Service>('services', [orderBy('price')], []);
+export function useServices(onError?: (msg: string) => void): Service[] {
+  return useCollection<Service>('services', [orderBy('price')], [], onError);
 }
 
 export function useDownloads(onError?: (msg: string) => void): DownloadItem[] {

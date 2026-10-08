@@ -6,13 +6,18 @@ import { RequireAuth } from '@/components/Guard';
 import { AppShell } from '@/components/AppShell';
 import { useCategories, useServices } from '@/lib/hooks';
 import { Icon } from '@/components/Icon';
+import { FirestoreBanner } from '@/components/FirestoreBanner';
 import { brl } from '@/lib/format';
 
 function Servicos() {
-  const categories = useCategories();
-  const services = useServices();
+  const [erro, setErro] = useState<string | null>(null);
+  const categories = useCategories(setErro);
+  const services = useServices(setErro);
   const [query, setQuery] = useState('');
-  const [cat, setCat] = useState('todas');
+  const [cat, setCat] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'todas';
+    return new URLSearchParams(window.location.search).get('cat') ?? 'todas';
+  });
 
   const filtered = services.filter((s) => {
     if (s.isActive === false) return false;
@@ -27,6 +32,11 @@ function Servicos() {
   return (
     <AppShell header="Serviços disponíveis">
       <div className="mx-auto max-w-6xl space-y-6">
+        {erro && (
+          <div className="pt-2">
+            <FirestoreBanner error={erro} />
+          </div>
+        )}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-sm">
             <Icon name="search" className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />

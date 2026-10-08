@@ -8,12 +8,14 @@ import { Reveal } from '@/components/Reveal';
 import { useServices } from '@/lib/hooks';
 import { brl } from '@/lib/format';
 import { useAuth } from '@/components/AuthProvider';
+import { FirestoreBanner } from '@/components/FirestoreBanner';
 
 export default function AtivacaoLicencaPage() {
   const { user } = useAuth();
+  const [erro, setErro] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
-  const todos = useServices();
+  const todos = useServices(setErro);
   const licencas = useMemo(
     () => todos.filter((s) => s.categoryId === 'cat-licenca' && s.isActive !== false),
     [todos]
@@ -49,6 +51,9 @@ export default function AtivacaoLicencaPage() {
 
       {/* Conteúdo */}
       <main className="mx-auto max-w-6xl px-4 pb-16 pt-10">
+        <div className="mb-6">
+          <FirestoreBanner error={erro} />
+        </div>
         <Reveal>
           <div className="text-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-fuchsia-500/30 bg-fuchsia-500/5 px-4 py-1.5 text-xs font-semibold text-fuchsia-400">

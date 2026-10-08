@@ -5,6 +5,10 @@ import { categoriesSeed } from '@/lib/seed-data';
 
 export const runtime = 'nodejs';
 
+// Hobby: o padrão é 10s e o máximo 60s. Com gravação em lote do Firestore
+// o puxar inteiro (1906 produtos) cabe folgado nesse limite.
+export const maxDuration = 60;
+
 // Páginas do site (categorias do seed) para onde os serviços podem ir.
 const DESTINOS = new Set(categoriesSeed.map((c) => c.id));
 
@@ -107,11 +111,20 @@ export async function POST(req: NextRequest) {
     porPagina[alvo] = (porPagina[alvo] ?? 0) + 1;
   };
 
-  const writes: Promise<unknown>[] = [];
+  // Gravação em LOTE ATÔMICO do Firestore (máx. 500 ops por commit). Em vez
+  // de 1906 documentos individuais (10+ rodadas lentas que estouravam o
+  // limite de tempo), são só ~5 commits — cabe nos 60s da Vercel Hobby.
+  // Se a função morrer no meio, o lote atual volta atrás e os anteriores
+  // ficam; como o id é determinístico (api-<tag>-<uuid>), rodar de novo
+  // apenas completa o que faltou.
+  const LOTE = 400;
+  let batch = db.batch();
+  let batchSize = 0;
   const flushar = async () => {
-    if (writes.length === 0) return;
-    await Promise.all(writes);
-    writes.length = 0;
+    if (batchSize === 0) return;
+    await batch.commit();
+    batch = db.batch();
+    batchSize = 0;
   };
 
   for (const p of products) {
@@ -120,7 +133,8 @@ export async function POST(req: NextRequest) {
     if (e) {
       if (e.cat !== alvo) {
         escrever(alvo);
-        writes.push(col.doc(e.docId).update({ categoryId: alvo }));
+        batch.update(col.doc(e.docId), { categoryId: alvo });
+        batchSize++;
       }
     } else {
       added++;
@@ -128,29 +142,29 @@ export async function POST(req: NextRequest) {
       const tag = alvo.replace('cat-', '');
       const field =
         (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial';
-      writes.push(
-        col.doc(`api-${tag}-${p.uuid}`).set(
-          {
-            id: `api-${tag}-${p.uuid}`,
-            categoryId: alvo,
-            slug: `${slugify(p.name)}-${p.uuid}`,
-            name: p.name,
-            description: p.name,
-            price: Math.round(price * 100) / 100,
-            deliveryTime,
-            provider: 'auto',
-            productUuid: p.uuid,
-            apiField: field,
-            apiExtra: null,
-            apiFields: p.fields ?? null,
-            imageUrl: p.image_url ?? null,
-            isActive: true,
-          },
-          { merge: true }
-        )
+      batch.set(
+        col.doc(`api-${tag}-${p.uuid}`),
+        {
+          id: `api-${tag}-${p.uuid}`,
+          categoryId: alvo,
+          slug: `${slugify(p.name)}-${p.uuid}`,
+          name: p.name,
+          description: p.name,
+          price: Math.round(price * 100) / 100,
+          deliveryTime,
+          provider: 'auto',
+          productUuid: p.uuid,
+          apiField: field,
+          apiExtra: null,
+          apiFields: p.fields ?? null,
+          imageUrl: p.image_url ?? null,
+          isActive: true,
+        },
+        { merge: true }
       );
+      batchSize++;
     }
-    if (writes.length >= 200) await flushar();
+    if (batchSize >= LOTE) await flushar();
   }
   await flushar();
 

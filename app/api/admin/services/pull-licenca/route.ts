@@ -5,6 +5,10 @@ import { categoriesSeed } from '@/lib/seed-data';
 
 export const runtime = 'nodejs';
 
+// Hobby: o padrão é 10s e o máximo 60s. Com gravação em lote do Firestore
+// o puxar inteiro cabe folgado nesse limite.
+export const maxDuration = 60;
+
 // Páginas do site onde os produtos puxados podem cair (categorias do seed).
 const DESTINOS = new Set(categoriesSeed.map((c) => c.id));
 
@@ -123,11 +127,16 @@ export async function POST(req: NextRequest) {
 
   const added: string[] = [];
   let skipped = 0;
-  const writes: Promise<unknown>[] = [];
+  // Gravação em LOTE ATÔMICO do Firestore (máx. 500 ops por commit) — bem
+  // mais rápido que 1 documento por vez e cabe nos 60s da Vercel Hobby.
+  const LOTE = 400;
+  let batch = db.batch();
+  let batchSize = 0;
   const flushar = async () => {
-    if (writes.length === 0) return;
-    await Promise.all(writes);
-    writes.length = 0;
+    if (batchSize === 0) return;
+    await batch.commit();
+    batch = db.batch();
+    batchSize = 0;
   };
 
   for (const p of matches) {
@@ -138,29 +147,29 @@ export async function POST(req: NextRequest) {
     const field =
       (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial';
     const id = `api-${destinoTag}-${p.uuid}`;
-    writes.push(
-      col.doc(id).set(
-        {
-          id,
-          categoryId: destino,
-          slug: `${slugify(p.name)}-${p.uuid}`,
-          name: p.name,
-          description: p.name,
-          price: Math.round(price * 100) / 100,
-          deliveryTime,
-          provider: 'auto',
-          productUuid: p.uuid,
-          apiField: field,
-          apiExtra: null,
-          apiFields: p.fields ?? null,
-          imageUrl: p.image_url ?? null,
-          isActive: true,
-        },
-        { merge: true }
-      )
+    batch.set(
+      col.doc(id),
+      {
+        id,
+        categoryId: destino,
+        slug: `${slugify(p.name)}-${p.uuid}`,
+        name: p.name,
+        description: p.name,
+        price: Math.round(price * 100) / 100,
+        deliveryTime,
+        provider: 'auto',
+        productUuid: p.uuid,
+        apiField: field,
+        apiExtra: null,
+        apiFields: p.fields ?? null,
+        imageUrl: p.image_url ?? null,
+        isActive: true,
+      },
+      { merge: true }
     );
     added.push(p.name);
-    if (writes.length >= 200) await flushar();
+    batchSize++;
+    if (batchSize >= LOTE) await flushar();
   }
   await flushar();
 

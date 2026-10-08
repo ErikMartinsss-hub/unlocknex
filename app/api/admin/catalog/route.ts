@@ -28,7 +28,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const data = await huGetProducts();
-    const products = Object.values(data.products ?? {}).map((p) => ({
+    const rawProducts = Object.values(data.products ?? {});
+    const apiCategoryCounts: Record<string, number> = {};
+    for (const p of rawProducts) {
+      if (p.cid) apiCategoryCounts[p.cid] = (apiCategoryCounts[p.cid] ?? 0) + 1;
+    }
+    const products = rawProducts.map((p) => ({
       uuid: p.uuid,
       name: p.name,
       price: Number(p.price) || 0,
@@ -41,6 +46,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       currency: data.currency ?? 'USD',
       apiCategories: data.categories ?? {},
+      apiCategoryCounts,
       products,
     });
   } catch (e) {

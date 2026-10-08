@@ -38,6 +38,7 @@ export type HuProduct = {
   uuid: string;
   name: string;
   price: number | string;
+  cid?: string;
   image_url?: string;
   fields: { type: string; name: string; required: boolean; min?: number; max?: number }[];
 };

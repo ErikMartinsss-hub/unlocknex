@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { huGetProducts } from '@/lib/heartunlocks';
+import { categoriesSeed } from '@/lib/seed-data';
 
 export const runtime = 'nodejs';
+
+// Páginas do site onde os produtos puxados podem cair (categorias do seed).
+const DESTINOS = new Set(categoriesSeed.map((c) => c.id));
 
 // Produtos de ATIVAÇÃO DE LICENÇA (ex.: UnlockTool Renew / Activation /
 // Renew 3 months License). Filtra pelo nome do produto na API.
@@ -17,10 +21,12 @@ const slugify = (s: string) =>
     .replace(/^-+|-+$/g, '') || 'servico';
 
 /**
- * Puxa da API HeartUnlocks os produtos de ativação de licença e cria UM
- * serviço para cada um na categoria 'cat-licenca' (página Ativação de Licença).
+ * Puxa produtos da API HeartUnlocks (por categoria da API e/ou termo no
+ * nome) e cria um serviço para cada um na página de destino escolhida.
  * POST /api/admin/services/pull-licenca — restrito a role 'admin'.
- * Body: { price } — preço padrão em R$ usado para todos os que forem puxados.
+ * Body: { price, deliveryTime?, term?, cid?, destino? } — price é o preço
+ * padrão em R$ usado para todos os puxados; destino é uma categoria do site
+ * (padrão 'cat-licenca', página Ativação de Licença).
  */
 export async function POST(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
@@ -56,18 +62,32 @@ export async function POST(req: NextRequest) {
   const deliveryTime = String(body.deliveryTime ?? '').trim() || 'Instantâneo';
   // Termo opcional digitado pelo admin; sem termo, usa as palavras de licença.
   const term = String(body.term ?? '').trim().toLowerCase();
+  // Categoria da API (cid) e página de destino (categoria do site).
+  const cid = String(body.cid ?? '').trim();
+  const destino = String(body.destino ?? '').trim() || 'cat-licenca';
+  if (!DESTINOS.has(destino)) {
+    return NextResponse.json({ ok: false, message: 'Página de destino inválida.' }, { status: 400 });
+  }
+  const destinoTag = destino.replace('cat-', '');
 
   const data = await huGetProducts();
   const products = Object.values(data.products ?? {});
   const matches = products.filter((p) => {
+    if (cid && p.cid !== cid) return false;
     const nome = p.name ?? '';
-    // Com termo digitado, busca literal; sem termo, usa palavras-chave de licença.
-    return term ? nome.toLowerCase().includes(term) : KEYWORDS.test(nome);
+    // Com termo digitado, busca literal; com categoria, traz a categoria
+    // inteira; sem nenhum dos dois, usa palavras-chave de licença.
+    if (term) return nome.toLowerCase().includes(term);
+    return cid ? true : KEYWORDS.test(nome);
   });
   const matchedNames = matches.map((p) => p.name ?? '');
 
   if (matches.length === 0) {
-    const alvo = term ? `"${term}"` : 'as palavras de licença';
+    const alvo = cid
+      ? 'a categoria selecionada da API'
+      : term
+        ? `"${term}"`
+        : 'as palavras de licença';
     return NextResponse.json({
       ok: true,
       added: [],
@@ -94,11 +114,11 @@ export async function POST(req: NextRequest) {
     }
     const field =
       (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial';
-    const id = `api-licenca-${p.uuid}`;
+    const id = `api-${destinoTag}-${p.uuid}`;
     await col.doc(id).set(
       {
         id,
-        categoryId: 'cat-licenca',
+        categoryId: destino,
         slug: `${slugify(p.name)}-${p.uuid}`,
         name: p.name,
         description: p.name,

@@ -44,6 +44,8 @@ function Admin() {
   // --- Catálogo da API (adicionar serviços um a um) ---
   type ApiProd = { uuid: string; name: string; price: number; imageUrl: string; field: string };
   const [catalog, setCatalog] = useState<ApiProd[]>([]);
+  const [apiCats, setApiCats] = useState<Record<string, { name: string }>>({});
+  const [apiCatCounts, setApiCatCounts] = useState<Record<string, number>>({});
   const [catBusy, setCatBusy] = useState(false);
   const [catErro, setCatErro] = useState<string | null>(null);
   const [apiBusca, setApiBusca] = useState('');
@@ -62,6 +64,8 @@ function Admin() {
   const [licPreco, setLicPreco] = useState('');
   const [licPrazo, setLicPrazo] = useState('');
   const [licTermo, setLicTermo] = useState('');
+  const [licCat, setLicCat] = useState('');
+  const [licDestino, setLicDestino] = useState('cat-licenca');
   const [licBusy, setLicBusy] = useState(false);
   const [prazos, setPrazos] = useState<Record<string, string>>({});
   const [licStatus, setLicStatus] = useState<{
@@ -461,7 +465,13 @@ function Admin() {
       const res = await fetch('/api/admin/services/pull-licenca', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ price, deliveryTime: licPrazo.trim() || undefined, term: licTermo.trim() || undefined }),
+        body: JSON.stringify({
+          price,
+          deliveryTime: licPrazo.trim() || undefined,
+          term: licTermo.trim() || undefined,
+          cid: licCat || undefined,
+          destino: licDestino,
+        }),
       });
       const data = (await res.json().catch(() => ({ ok: false }))) as {
         ok?: boolean;
@@ -491,6 +501,7 @@ function Admin() {
         setLicPreco('');
         setLicPrazo('');
         setLicTermo('');
+        setLicCat('');
       } else {
         push(data.message ?? 'Falha ao puxar licenças.', 'err');
       }
@@ -510,10 +521,14 @@ function Admin() {
       const data = (await res.json().catch(() => null)) as {
         ok?: boolean;
         products?: ApiProd[];
+        apiCategories?: Record<string, { name: string }>;
+        apiCategoryCounts?: Record<string, number>;
         message?: string;
       } | null;
       if (res.ok && data?.ok) {
         setCatalog(data.products ?? []);
+        setApiCats(data.apiCategories ?? {});
+        setApiCatCounts(data.apiCategoryCounts ?? {});
         setApiPrecos((m) => {
           const next = { ...m };
           (data.products ?? []).forEach((p) => {
@@ -936,13 +951,28 @@ function Admin() {
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/5 p-3">
-              <p className="min-w-0 flex-1 basis-48 text-xs text-zinc-300">
-                <span className="font-bold text-fuchsia-400">Puxar ativação de licença da API</span>{' '}
-                — busca no catálogo da API (digite um termo, ex.: UnlockTool / Activation / Renew)
-                e adiciona direto na página{' '}
-                <span className="font-semibold text-zinc-100">Ativação de Licença</span>, com o
-                preço e o prazo padrão.
+              <p className="min-w-0 flex-1 basis-56 text-xs text-zinc-300">
+                <span className="font-bold text-fuchsia-400">Puxar da API</span> — escolha uma{' '}
+                <span className="text-zinc-100">categoria da API</span> (ex.: IMEI, Unlock) ou digite
+                um <span className="text-zinc-100">termo</span>, defina preço e prazo padrão,
+                escolha a <span className="text-zinc-100">página de destino</span> e puxe tudo de
+                uma vez.
               </p>
+              <select
+                value={licCat}
+                onChange={(e) => setLicCat(e.target.value)}
+                className="input-dark w-44"
+                title="Categoria da API (deixe em 'todas' para buscar por termo)"
+              >
+                <option value="">Categoria: todas (por termo)</option>
+                {Object.entries(apiCats)
+                  .sort((a, b) => a[1].name.localeCompare(b[1].name))
+                  .map(([id, cat]) => (
+                    <option key={id} value={id}>
+                      {cat.name} ({apiCatCounts[id] ?? 0})
+                    </option>
+                  ))}
+              </select>
               <input
                 value={licTermo}
                 onChange={(e) => setLicTermo(e.target.value)}
@@ -962,6 +992,18 @@ function Admin() {
                 placeholder="Prazo padrão (ex.: Até 30 min)"
                 className="input-dark w-44"
               />
+              <select
+                value={licDestino}
+                onChange={(e) => setLicDestino(e.target.value)}
+                className="input-dark w-44"
+                title="Página do site onde os produtos vão aparecer"
+              >
+                {catServicos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    Página: {c.name}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={puxarLicencas}
                 disabled={licBusy}

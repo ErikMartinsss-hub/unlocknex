@@ -14,6 +14,7 @@ const nav = [
   { href: '/pedidos/novo', icon: 'plus', name: 'Novo Pedido' },
   { href: '/servicos', icon: 'grid', name: 'Serviços' },
   { href: '/remote', icon: 'wrench', name: 'Aluguel de ferramentas' },
+  { href: '/ativacao-de-licenca', icon: 'sparkles', name: 'Ativação de Licença' },
   { href: '/downloads', icon: 'download', name: 'Downloads' },
   { href: '/pedidos', icon: 'file', name: 'Pedidos' },
   { href: '/tickets', icon: 'chat', name: 'Tickets' },

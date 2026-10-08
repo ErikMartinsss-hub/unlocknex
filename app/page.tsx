@@ -76,6 +76,10 @@ export default function Page() {
               <Icon name="wrench" className="h-4 w-4" />
               Aluguel de ferramentas
             </Link>
+            <Link href="/ativacao-de-licenca" className="inline-flex items-center gap-1.5 transition hover:text-neon-400">
+              <Icon name="sparkles" className="h-4 w-4" />
+              Ativação de licença
+            </Link>
             <a href="#recentes" className="transition hover:text-neon-400">Recentes</a>
             <a href="#como-funciona" className="transition hover:text-neon-400">Como funciona</a>
             <a href="#pagamentos" className="transition hover:text-neon-400">Pagamentos</a>
@@ -272,6 +276,7 @@ export default function Page() {
             <ul className="mt-4 space-y-2.5">
               <li><a href="/login" className="transition hover:text-neon-300">Entrar</a></li>
               <li><a href="/register" className="transition hover:text-neon-300">Criar conta</a></li>
+              <li><Link href="/ativacao-de-licenca" className="transition hover:text-neon-300">Ativação de licença</Link></li>
               <li><a href="#pagamentos" className="transition hover:text-neon-300">Pagamentos</a></li>
               <li><a href="#recentes" className="transition hover:text-neon-300">Novos serviços</a></li>
             </ul>

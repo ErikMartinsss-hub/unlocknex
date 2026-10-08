@@ -8,6 +8,7 @@ export const categoriesSeed = [
   { id: 'cat-unlock', slug: 'unlock', name: 'Desbloqueio de Operadora', icon: 'unlock', color: '#a78bfa' },
   { id: 'cat-desbloqueios', slug: 'desbloqueios', name: 'Outros Desbloqueios', icon: 'wrench', color: '#fb923c' },
   { id: 'cat-remote', slug: 'remote', name: 'Aluguel de Ferramentas', icon: 'wrench', color: '#00ff66' },
+  { id: 'cat-licenca', slug: 'licenca', name: 'Ativação de Licença', icon: 'sparkles', color: '#e879f9' },
 ];
 
 // Catálogo de serviços passou a ser gerenciado pelo painel /admin

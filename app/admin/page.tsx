@@ -60,6 +60,7 @@ function Admin() {
   const [novoImg, setNovoImg] = useState('');
   const [novoBusy, setNovoBusy] = useState(false);
   const [licPreco, setLicPreco] = useState('');
+  const [licPrazo, setLicPrazo] = useState('');
   const [licBusy, setLicBusy] = useState(false);
 
   const dlFiltrados = useMemo(() => {
@@ -438,7 +439,7 @@ function Admin() {
       const res = await fetch('/api/admin/services/pull-licenca', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ price }),
+        body: JSON.stringify({ price, deliveryTime: licPrazo.trim() || undefined }),
       });
       const data = (await res.json().catch(() => ({ ok: false }))) as {
         ok?: boolean;
@@ -457,6 +458,7 @@ function Admin() {
           push(data.message ?? 'Nenhum produto de licença encontrado na API.', 'err');
         }
         setLicPreco('');
+        setLicPrazo('');
       } else {
         push(data.message ?? 'Falha ao puxar licenças.', 'err');
       }
@@ -898,7 +900,7 @@ function Admin() {
                 <span className="font-bold text-fuchsia-400">Puxar ativação de licença da API</span>{' '}
                 — encontra os produtos de licença (UnlockTool Renew / Activation / License) e adiciona
                 direto na página <span className="font-semibold text-zinc-100">Ativação de Licença</span>,
-                com o preço padrão abaixo.
+                com o preço e o prazo padrão abaixo.
               </p>
               <input
                 value={licPreco}
@@ -906,6 +908,12 @@ function Admin() {
                 placeholder="Preço padrão R$"
                 inputMode="decimal"
                 className="input-dark w-28"
+              />
+              <input
+                value={licPrazo}
+                onChange={(e) => setLicPrazo(e.target.value)}
+                placeholder="Prazo padrão (ex.: Até 30 min)"
+                className="input-dark w-44"
               />
               <button
                 onClick={puxarLicencas}

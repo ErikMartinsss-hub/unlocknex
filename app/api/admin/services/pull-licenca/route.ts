@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  const deliveryTime = String(body.deliveryTime ?? '').trim() || 'Instantâneo';
 
   const data = await huGetProducts();
   const products = Object.values(data.products ?? {});
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
         name: p.name,
         description: p.name,
         price: Math.round(price * 100) / 100,
-        deliveryTime: 'Instantâneo',
+        deliveryTime,
         provider: 'auto',
         productUuid: p.uuid,
         apiField: field,

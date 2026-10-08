@@ -75,7 +75,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'Página padrão inválida.' }, { status: 400 });
   }
 
-  const data = await huGetProducts();
+  let data;
+  try {
+    data = await huGetProducts();
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Falha ao consultar a HeartUnlocks: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
+      },
+      { status: 502 }
+    );
+  }
   const products = Object.values(data.products ?? {});
   const cats = (data.categories ?? {}) as Record<string, { name?: string }>;
 
@@ -127,46 +138,56 @@ export async function POST(req: NextRequest) {
     batchSize = 0;
   };
 
-  for (const p of products) {
-    const alvo = mapa.get(p.uuid)!;
-    const e = existing.get(p.uuid);
-    if (e) {
-      if (e.cat !== alvo) {
+  try {
+    for (const p of products) {
+      const alvo = mapa.get(p.uuid)!;
+      const e = existing.get(p.uuid);
+      if (e) {
+        if (e.cat !== alvo) {
+          escrever(alvo);
+          batch.update(col.doc(e.docId), { categoryId: alvo });
+          batchSize++;
+        }
+      } else {
+        added++;
         escrever(alvo);
-        batch.update(col.doc(e.docId), { categoryId: alvo });
+        const tag = alvo.replace('cat-', '');
+        const field =
+          (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial';
+        batch.set(
+          col.doc(`api-${tag}-${p.uuid}`),
+          {
+            id: `api-${tag}-${p.uuid}`,
+            categoryId: alvo,
+            slug: `${slugify(p.name)}-${p.uuid}`,
+            name: p.name,
+            description: p.name,
+            price: Math.round(price * 100) / 100,
+            deliveryTime,
+            provider: 'auto',
+            productUuid: p.uuid,
+            apiField: field,
+            apiExtra: null,
+            apiFields: p.fields ?? null,
+            imageUrl: p.image_url ?? null,
+            isActive: true,
+          },
+          { merge: true }
+        );
         batchSize++;
       }
-    } else {
-      added++;
-      escrever(alvo);
-      const tag = alvo.replace('cat-', '');
-      const field =
-        (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial';
-      batch.set(
-        col.doc(`api-${tag}-${p.uuid}`),
-        {
-          id: `api-${tag}-${p.uuid}`,
-          categoryId: alvo,
-          slug: `${slugify(p.name)}-${p.uuid}`,
-          name: p.name,
-          description: p.name,
-          price: Math.round(price * 100) / 100,
-          deliveryTime,
-          provider: 'auto',
-          productUuid: p.uuid,
-          apiField: field,
-          apiExtra: null,
-          apiFields: p.fields ?? null,
-          imageUrl: p.image_url ?? null,
-          isActive: true,
-        },
-        { merge: true }
-      );
-      batchSize++;
+      if (batchSize >= LOTE) await flushar();
     }
-    if (batchSize >= LOTE) await flushar();
+    await flushar();
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Falha ao gravar no Firestore: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
+      },
+      { status: 500 }
+    );
   }
-  await flushar();
 
   const porPaginaNomes = Object.entries(porPagina)
     .map(([id, count]) => ({

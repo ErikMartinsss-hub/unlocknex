@@ -76,7 +76,18 @@ export async function POST(req: NextRequest) {
   }
   const destinoTag = destino.replace('cat-', '');
 
-  const data = await huGetProducts();
+  let data;
+  try {
+    data = await huGetProducts();
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Falha ao consultar a HeartUnlocks: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
+      },
+      { status: 502 }
+    );
+  }
   const products = Object.values(data.products ?? {});
   const matches = products.filter((p) => {
     if (tipo && p.type !== tipo) return false;
@@ -139,39 +150,49 @@ export async function POST(req: NextRequest) {
     batchSize = 0;
   };
 
-  for (const p of matches) {
-    if (existingUuids.has(p.uuid)) {
-      skipped++;
-      continue;
+  try {
+    for (const p of matches) {
+      if (existingUuids.has(p.uuid)) {
+        skipped++;
+        continue;
+      }
+      const field =
+        (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial';
+      const id = `api-${destinoTag}-${p.uuid}`;
+      batch.set(
+        col.doc(id),
+        {
+          id,
+          categoryId: destino,
+          slug: `${slugify(p.name)}-${p.uuid}`,
+          name: p.name,
+          description: p.name,
+          price: Math.round(price * 100) / 100,
+          deliveryTime,
+          provider: 'auto',
+          productUuid: p.uuid,
+          apiField: field,
+          apiExtra: null,
+          apiFields: p.fields ?? null,
+          imageUrl: p.image_url ?? null,
+          isActive: true,
+        },
+        { merge: true }
+      );
+      added.push(p.name);
+      batchSize++;
+      if (batchSize >= LOTE) await flushar();
     }
-    const field =
-      (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial';
-    const id = `api-${destinoTag}-${p.uuid}`;
-    batch.set(
-      col.doc(id),
+    await flushar();
+  } catch (err) {
+    return NextResponse.json(
       {
-        id,
-        categoryId: destino,
-        slug: `${slugify(p.name)}-${p.uuid}`,
-        name: p.name,
-        description: p.name,
-        price: Math.round(price * 100) / 100,
-        deliveryTime,
-        provider: 'auto',
-        productUuid: p.uuid,
-        apiField: field,
-        apiExtra: null,
-        apiFields: p.fields ?? null,
-        imageUrl: p.image_url ?? null,
-        isActive: true,
+        ok: false,
+        message: `Falha ao gravar no Firestore: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
       },
-      { merge: true }
+      { status: 500 }
     );
-    added.push(p.name);
-    batchSize++;
-    if (batchSize >= LOTE) await flushar();
   }
-  await flushar();
 
   return NextResponse.json({
     ok: true,

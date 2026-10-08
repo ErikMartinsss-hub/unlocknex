@@ -616,6 +616,7 @@ function Admin() {
       };
       if (res.ok && data.ok) {
         setOrgResult({ added: data.added ?? 0, porPagina: data.porPagina ?? [] });
+        carregarDiagnostico();
         push('Catálogo puxado e organizado!', 'ok');
       } else {
         push(data.message ?? 'Falha ao organizar.', 'err');
@@ -809,11 +810,20 @@ function Admin() {
                 }`}
               >
                 {diag.projectsMatch ? (
-                  <p>
-                    ✅ Banco conectado: <b>{diag.serverCount >= 0 ? diag.serverCount : '?'} serviços</b> no
-                    projeto <b>{diag.clientProject}</b>. Se o contador acima não subir depois de puxar, rode o
-                    "Puxar TUDO e organizar" de novo (a rota agora grava em lotes e continua de onde parou).
-                  </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p>
+                      ✅ Banco conectado: <b>{diag.serverCount >= 0 ? diag.serverCount : '?'} serviços</b>{' '}
+                      no projeto <b>{diag.clientProject}</b>. Rode o "Puxar TUDO e organizar" e clique em
+                      Atualizar para conferir o novo total.
+                    </p>
+                    <button
+                      onClick={carregarDiagnostico}
+                      className="btn-neon shrink-0 px-3 py-1.5 text-xs"
+                      title="Recarregar a contagem do banco"
+                    >
+                      Atualizar
+                    </button>
+                  </div>
                 ) : (
                   <div>
                     <p className="font-semibold">⚠️ Projetos DIFERENTES — o puxar grava num banco e o site lê em outro.</p>

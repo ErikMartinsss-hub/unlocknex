@@ -20,21 +20,22 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Catálogo público para qualquer pessoa logada
+    // Catálogo público para TODOS (páginas abertas: Serviços, Aluguel,
+    // Ativação de Licença). Escrita apenas via servidor (Admin SDK).
     match /categories/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if false;
     }
 
     match /services/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if false;
     }
 
-    // Central de Downloads: leitura para qualquer pessoa logada,
-    // escrita apenas pelo servidor (Admin SDK) via /api/admin.
+    // Central de Downloads: leitura pública, escrita apenas pelo
+    // servidor (Admin SDK) via /api/admin.
     match /downloads/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if false;
     }
 

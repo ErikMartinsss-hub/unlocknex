@@ -953,10 +953,10 @@ function Admin() {
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/5 p-3">
               <p className="min-w-0 flex-1 basis-56 text-xs text-zinc-300">
                 <span className="font-bold text-fuchsia-400">Puxar da API</span> — escolha uma{' '}
-                <span className="text-zinc-100">categoria da API</span> (ex.: IMEI, Unlock) ou digite
-                um <span className="text-zinc-100">termo</span>, defina preço e prazo padrão,
-                escolha a <span className="text-zinc-100">página de destino</span> e puxe tudo de
-                uma vez.
+                <span className="text-zinc-100">categoria da API</span> (ex.: IMEI, Unlock), digite
+                um <span className="text-zinc-100">termo</span> ou puxe{' '}
+                <span className="text-zinc-100">TUDO de uma vez</span>; defina preço e prazo padrão,
+                escolha a <span className="text-zinc-100">página de destino</span> e puxe.
               </p>
               <select
                 value={licCat}
@@ -965,6 +965,7 @@ function Admin() {
                 title="Categoria da API (deixe em 'todas' para buscar por termo)"
               >
                 <option value="">Categoria: todas (por termo)</option>
+                <option value="__all__">TODAS — puxar tudo ({catalog.length})</option>
                 {Object.entries(apiCats)
                   .sort((a, b) => a[1].name.localeCompare(b[1].name))
                   .map(([id, cat]) => (
@@ -1031,9 +1032,12 @@ function Admin() {
                       {licStatus.skipped ? ` ${licStatus.skipped} já existiam.` : ' direto na página Ativação de Licença.'}
                     </p>
                     <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1 text-zinc-300">
-                      {licStatus.matched.map((n) => (
+                      {licStatus.matched.slice(0, 50).map((n) => (
                         <li key={n}>• {n}</li>
                       ))}
+                      {licStatus.matched.length > 50 && (
+                        <li className="text-zinc-500">… e mais {licStatus.matched.length - 50}</li>
+                      )}
                     </ul>
                   </>
                 ) : (

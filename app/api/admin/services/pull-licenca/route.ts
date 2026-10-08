@@ -73,8 +73,9 @@ export async function POST(req: NextRequest) {
   const data = await huGetProducts();
   const products = Object.values(data.products ?? {});
   const matches = products.filter((p) => {
-    if (cid && p.cid !== cid) return false;
+    if (cid && cid !== '__all__' && p.cid !== cid) return false;
     const nome = p.name ?? '';
+    if (cid === '__all__') return true;
     // Com termo digitado, busca literal; com categoria, traz a categoria
     // inteira; sem nenhum dos dois, usa palavras-chave de licença.
     if (term) return nome.toLowerCase().includes(term);
@@ -103,38 +104,59 @@ export async function POST(req: NextRequest) {
   }
 
   const col = db.collection('services');
+  // Dedup em UMA busca (evita uma query por produto — "puxar tudo" tem ~1906).
+  const existingUuids = new Set<string>();
+  try {
+    const snap = await col.select('productUuid').get();
+    snap.forEach((d) => {
+      const v = d.data()?.productUuid;
+      if (v) existingUuids.add(String(v));
+    });
+  } catch {
+    // Se a leitura falhar, segue sem dedup (set com merge é idempotente por id).
+  }
+
   const added: string[] = [];
   let skipped = 0;
+  const writes: Promise<unknown>[] = [];
+  const flushar = async () => {
+    if (writes.length === 0) return;
+    await Promise.all(writes);
+    writes.length = 0;
+  };
 
   for (const p of matches) {
-    const existing = await col.where('productUuid', '==', p.uuid).limit(1).get().catch(() => null);
-    if (existing && !existing.empty) {
+    if (existingUuids.has(p.uuid)) {
       skipped++;
       continue;
     }
     const field =
       (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial';
     const id = `api-${destinoTag}-${p.uuid}`;
-    await col.doc(id).set(
-      {
-        id,
-        categoryId: destino,
-        slug: `${slugify(p.name)}-${p.uuid}`,
-        name: p.name,
-        description: p.name,
-        price: Math.round(price * 100) / 100,
-        deliveryTime,
-        provider: 'auto',
-        productUuid: p.uuid,
-        apiField: field,
-        apiExtra: null,
-        imageUrl: p.image_url ?? null,
-        isActive: true,
-      },
-      { merge: true }
+    writes.push(
+      col.doc(id).set(
+        {
+          id,
+          categoryId: destino,
+          slug: `${slugify(p.name)}-${p.uuid}`,
+          name: p.name,
+          description: p.name,
+          price: Math.round(price * 100) / 100,
+          deliveryTime,
+          provider: 'auto',
+          productUuid: p.uuid,
+          apiField: field,
+          apiExtra: null,
+          imageUrl: p.image_url ?? null,
+          isActive: true,
+        },
+        { merge: true }
+      )
     );
     added.push(p.name);
+    if (writes.length >= 200) await flushar();
   }
+  await flushar();
 
   return NextResponse.json({
     ok: true,

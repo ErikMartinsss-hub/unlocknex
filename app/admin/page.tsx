@@ -61,6 +61,7 @@ function Admin() {
   const [novoBusy, setNovoBusy] = useState(false);
   const [licPreco, setLicPreco] = useState('');
   const [licPrazo, setLicPrazo] = useState('');
+  const [licTermo, setLicTermo] = useState('');
   const [licBusy, setLicBusy] = useState(false);
   const [prazos, setPrazos] = useState<Record<string, string>>({});
   const [licStatus, setLicStatus] = useState<{
@@ -460,7 +461,7 @@ function Admin() {
       const res = await fetch('/api/admin/services/pull-licenca', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ price, deliveryTime: licPrazo.trim() || undefined }),
+        body: JSON.stringify({ price, deliveryTime: licPrazo.trim() || undefined, term: licTermo.trim() || undefined }),
       });
       const data = (await res.json().catch(() => ({ ok: false }))) as {
         ok?: boolean;
@@ -489,6 +490,7 @@ function Admin() {
         }
         setLicPreco('');
         setLicPrazo('');
+        setLicTermo('');
       } else {
         push(data.message ?? 'Falha ao puxar licenças.', 'err');
       }
@@ -936,10 +938,17 @@ function Admin() {
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/5 p-3">
               <p className="min-w-0 flex-1 basis-48 text-xs text-zinc-300">
                 <span className="font-bold text-fuchsia-400">Puxar ativação de licença da API</span>{' '}
-                — encontra os produtos de licença (UnlockTool Renew / Activation / License) e adiciona
-                direto na página <span className="font-semibold text-zinc-100">Ativação de Licença</span>,
-                com o preço e o prazo padrão abaixo.
+                — busca no catálogo da API (digite um termo, ex.: UnlockTool / Activation / Renew)
+                e adiciona direto na página{' '}
+                <span className="font-semibold text-zinc-100">Ativação de Licença</span>, com o
+                preço e o prazo padrão.
               </p>
+              <input
+                value={licTermo}
+                onChange={(e) => setLicTermo(e.target.value)}
+                placeholder="Termo (ex.: UnlockTool)"
+                className="input-dark w-40"
+              />
               <input
                 value={licPreco}
                 onChange={(e) => setLicPreco(e.target.value)}
@@ -970,6 +979,9 @@ function Admin() {
                     : 'border-amber-500/30 bg-amber-500/5'
                 }`}
               >
+                <p className="mb-1 font-semibold uppercase tracking-wide text-zinc-500">
+                  Catálogo da API: {licStatus.total} produtos
+                </p>
                 {licStatus.matched.length > 0 ? (
                   <>
                     <p className="font-semibold text-fuchsia-300">
@@ -985,8 +997,7 @@ function Admin() {
                 ) : (
                   <>
                     <p className="font-semibold text-amber-300">
-                      Nenhum produto de licença encontrado (o catálogo da API tem {licStatus.total} produtos).
-                      Veja abaixo o que a API retornou:
+                      Nenhum produto encontrado com esse termo. Veja abaixo o que a API retornou:
                     </p>
                     <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1 text-zinc-400">
                       {licStatus.sample.map((n) => (

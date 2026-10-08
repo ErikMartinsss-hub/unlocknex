@@ -54,13 +54,20 @@ export async function POST(req: NextRequest) {
     );
   }
   const deliveryTime = String(body.deliveryTime ?? '').trim() || 'Instantâneo';
+  // Termo opcional digitado pelo admin; sem termo, usa as palavras de licença.
+  const term = String(body.term ?? '').trim().toLowerCase();
 
   const data = await huGetProducts();
   const products = Object.values(data.products ?? {});
-  const matches = products.filter((p) => KEYWORDS.test(p.name ?? ''));
+  const matches = products.filter((p) => {
+    const nome = p.name ?? '';
+    // Com termo digitado, busca literal; sem termo, usa palavras-chave de licença.
+    return term ? nome.toLowerCase().includes(term) : KEYWORDS.test(nome);
+  });
   const matchedNames = matches.map((p) => p.name ?? '');
 
   if (matches.length === 0) {
+    const alvo = term ? `"${term}"` : 'as palavras de licença';
     return NextResponse.json({
       ok: true,
       added: [],
@@ -71,7 +78,7 @@ export async function POST(req: NextRequest) {
         .map((p) => p.name ?? '')
         .filter(Boolean)
         .slice(0, 24),
-      message: `Nenhum produto de licença encontrado (o catálogo tem ${products.length} produtos).`,
+      message: `Nenhum produto encontrado com ${alvo} (o catálogo tem ${products.length} produtos).`,
     });
   }
 

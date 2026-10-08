@@ -51,6 +51,22 @@ export async function POST(req: NextRequest) {
   const deliveryTime = String(body.deliveryTime ?? '').trim() || 'Instantâneo';
   const imageUrl = String(body.imageUrl ?? '').trim();
 
+  // Campos completos que a API espera (Email, Username, Serial, Quantity…).
+  const rawFields = Array.isArray(body.apiFields) ? (body.apiFields as unknown[]) : null;
+  const apiFields = rawFields
+    ? rawFields
+        .filter((f): f is { name?: string; type?: string; required?: boolean } => {
+          if (typeof f !== 'object' || f === null) return false;
+          const o = f as { name?: string };
+          return typeof o.name === 'string' && Boolean(o.name.trim());
+        })
+        .map((f) => ({
+          name: (f.name as string).trim(),
+          type: typeof f.type === 'string' ? f.type : undefined,
+          required: f.required === true,
+        }))
+    : null;
+
   if (!uuid || uuid.length > 64) {
     return NextResponse.json({ ok: false, message: 'Produto da API inválido.' }, { status: 400 });
   }
@@ -80,6 +96,7 @@ export async function POST(req: NextRequest) {
     productUuid: uuid,
     apiField,
     apiExtra: null,
+    apiFields,
     imageUrl: imageUrl || null,
     isActive: true,
   };

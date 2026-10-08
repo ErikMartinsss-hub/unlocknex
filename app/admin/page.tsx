@@ -48,7 +48,15 @@ function Admin() {
   const [credResult, setCredResult] = useState<string | null>(null);
 
   // --- Catálogo da API (adicionar serviços um a um) ---
-  type ApiProd = { uuid: string; name: string; price: number; imageUrl: string; type: string; field: string };
+  type ApiProd = {
+    uuid: string;
+    name: string;
+    price: number;
+    imageUrl: string;
+    type: string;
+    field: string;
+    fields?: { name: string; type?: string; required?: boolean }[];
+  };
   const [catalog, setCatalog] = useState<ApiProd[]>([]);
   const [apiCats, setApiCats] = useState<Record<string, { name: string }>>({});
   const [apiCatCounts, setApiCatCounts] = useState<Record<string, number>>({});
@@ -665,7 +673,7 @@ function Admin() {
       const res = await fetch('/api/admin/services/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ uuid: p.uuid, name: p.name, price, categoryId, apiField, imageUrl: p.imageUrl }),
+        body: JSON.stringify({ uuid: p.uuid, name: p.name, price, categoryId, apiField, imageUrl: p.imageUrl, apiFields: p.fields ?? null }),
       });
       const data = (await res.json().catch(() => ({ ok: false }))) as { ok?: boolean; message?: string };
       if (res.ok && data.ok) {

@@ -42,6 +42,8 @@ export async function GET(req: NextRequest) {
       // Campo que o cliente vai preencher (IMEI, Serial, Quantity…) — o
       // primeiro campo obrigatório do produto, com fallback 'Serial'.
       field: (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial',
+      // Todos os campos esperados pela API (Email, Username, Serial, Quantity…).
+      fields: p.fields ?? [],
     }));
     return NextResponse.json({
       ok: true,

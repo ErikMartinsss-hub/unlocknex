@@ -18,6 +18,7 @@ type ServiceDoc = {
   provider?: string;
   productUuid?: string | null;
   apiField?: string | null;
+  apiFields?: { name: string; type?: string; required?: boolean }[] | null;
   apiExtra?: { key: string; label: string; required?: boolean }[] | null;
 };
 
@@ -55,23 +56,41 @@ export async function POST(req: NextRequest) {
   const serviceSnap = await db.doc(`services/${order.serviceId}`).get().catch(() => null);
   if (!serviceSnap?.exists) return NextResponse.json({ ok: false, message: 'Serviço não encontrado.' }, { status: 400 });
   const service = serviceSnap.data() as ServiceDoc;
-  if (service.provider !== 'auto' || !service.productUuid || !service.apiField) {
+  if (service.provider !== 'auto' || !service.productUuid) {
     return NextResponse.json({ ok: false, message: 'Serviço ainda não integrado ao sistema automático.' }, { status: 400 });
+  }
+
+  // Campos esperados pela API (Email, Username, Serial, Quantity…). Serviços
+  // antigos (sem apiFields) usam o apiField único como lista de um item.
+  const apiCampos: { name: string; type?: string; required?: boolean }[] =
+    Array.isArray(service.apiFields) && service.apiFields.length > 0
+      ? service.apiFields
+      : service.apiField
+        ? [{ name: service.apiField, type: service.apiField === 'Quantity' ? 'number' : 'text', required: true }]
+        : [];
+  if (apiCampos.length === 0) {
+    return NextResponse.json({ ok: false, message: 'Serviço sem campos configurados.' }, { status: 400 });
   }
 
   const productUuid = service.productUuid;
   const apiFields: Record<string, string | number> = {};
-  const fieldValue = fields[service.apiField ?? ''];
-  if (service.apiField === 'Quantity') {
-    const quantity = Number(fieldValue);
-    if (!Number.isFinite(quantity) || quantity < 1) {
-      return NextResponse.json({ ok: false, message: 'Quantidade inválida.' }, { status: 400 });
+  for (const c of apiCampos) {
+    const v = fields[c.name];
+    const isQty = c.name === 'Quantity' || c.type === 'number';
+    if (isQty) {
+      const raw = v === undefined ? '' : String(v).trim();
+      const n = Number(raw);
+      if (c.required && (!Number.isFinite(n) || n < 1)) {
+        return NextResponse.json({ ok: false, message: `Campo ${c.name} inválido.` }, { status: 400 });
+      }
+      if (raw !== '' && Number.isFinite(n)) apiFields[c.name] = Math.floor(n);
+    } else {
+      const raw = v === undefined ? '' : String(v).trim();
+      if (c.required && raw === '') {
+        return NextResponse.json({ ok: false, message: `Preencha ${c.name}.` }, { status: 400 });
+      }
+      if (raw !== '') apiFields[c.name] = raw;
     }
-    apiFields.Quantity = Math.floor(quantity);
-  } else if (fieldValue !== undefined && String(fieldValue).trim() !== '') {
-    apiFields[service.apiField ?? ''] = String(fieldValue).trim();
-  } else {
-    return NextResponse.json({ ok: false, message: 'Campo obrigatório em falta.' }, { status: 400 });
   }
   for (const extra of service.apiExtra ?? []) {
     const v = fields[extra.key];
@@ -86,8 +105,11 @@ export async function POST(req: NextRequest) {
     const [result] = await huPlaceOrders([
       { productUuid, fields: apiFields, referenceId: orderId, feedbackUrl: buildFeedbackUrl(req) },
     ]);
-    const apiKey = service.apiField ?? '';
-    const shown = apiKey === 'Quantity' ? `Aluguel de ferramenta (x${apiFields.Quantity})` : String(apiFields[apiKey]);
+    const apiKey = apiCampos[0]?.name ?? '';
+    const shown =
+      apiCampos[0] && (apiCampos[0].name === 'Quantity' || apiCampos[0].type === 'number')
+        ? `Aluguel de ferramenta (x${apiFields[apiKey] ?? 0})`
+        : String(apiFields[apiKey] ?? '');
     await orderRef.update({
       apiOrderId: result.orderUuid,
       apiStatus: 'submetido',

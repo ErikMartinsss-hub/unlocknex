@@ -142,6 +142,7 @@ export async function POST(req: NextRequest) {
             productUuid: p.uuid,
             apiField: field,
             apiExtra: null,
+            apiFields: p.fields ?? null,
             imageUrl: p.image_url ?? null,
             isActive: true,
           },

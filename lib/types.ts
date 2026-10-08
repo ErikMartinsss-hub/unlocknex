@@ -36,6 +36,8 @@ export type Service = {
   provider?: 'auto' | 'manual';
   productUuid?: string | null;
   apiField?: string | null;
+  /** Todos os campos que a API espera (ex.: Email, Username, Serial, Quantity). */
+  apiFields?: { name: string; type?: string; required?: boolean }[] | null;
   apiExtra?: ServiceFieldDef[] | null;
   imageUrl?: string | null;
 };

@@ -75,6 +75,10 @@ function Servicos() {
           ))}
         </div>
 
+        <p className="text-sm text-zinc-500">
+          {filtered.length} {filtered.length === 1 ? 'serviço no catálogo' : 'serviços no catálogo'}
+        </p>
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.length === 0 && (
             <div className="col-span-full rounded-2xl border border-zinc-800 p-10 text-center text-sm text-zinc-500">

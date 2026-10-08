@@ -20,14 +20,22 @@ function NovoPedido() {
   const selectedId = searchParams.get('servico');
 
   const [serviceId, setServiceId] = useState(selectedId ?? '');
-  const [identifier, setIdentifier] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [extras, setExtras] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>({});
   const [model, setModel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const svc = useMemo(() => services.find((s) => s.id === serviceId), [services, serviceId]);
+  // Campos que a API espera (Email, Username, Serial, Quantity…). Serviços
+  // antigos (sem apiFields) usam o apiField único como lista de um item.
+  const apiCampos = useMemo(() => {
+    if (!svc) return [] as { name: string; type?: string; required?: boolean }[];
+    if (Array.isArray(svc.apiFields) && svc.apiFields.length > 0) return svc.apiFields;
+    if (svc.apiField) {
+      return [{ name: svc.apiField, type: svc.apiField === 'Quantity' ? 'number' : 'text', required: true }];
+    }
+    return [];
+  }, [svc]);
   const balance = profile?.balance ?? 0;
   const insufficient = svc ? balance < svc.price : false;
 
@@ -45,24 +53,46 @@ function NovoPedido() {
       setError('Serviço indisponível no momento.');
       return;
     }
-    setBusy(true);
     setError(null);
     const isAuto = svc.provider === 'auto';
-    const fieldKey = svc.apiField ?? '';
     const fields: Record<string, string | number> = {};
-    let deviceLabel = identifier.trim();
     if (isAuto) {
-      if (fieldKey === 'Quantity') {
-        fields.Quantity = quantity;
-        deviceLabel = `Aluguel de ferramenta (x${quantity})`;
-      } else {
-        fields[fieldKey] = identifier.trim();
+      for (const c of apiCampos) {
+        const raw = (values[c.name] ?? '').trim();
+        const isQty = c.name === 'Quantity' || c.type === 'number';
+        if (isQty) {
+          const n = Number(raw);
+          if (c.required && (!Number.isFinite(n) || n < 1)) {
+            setError(`Preencha ${c.name}.`);
+            return;
+          }
+          if (raw) fields[c.name] = Math.floor(n);
+        } else if (c.required && !raw) {
+          setError(`Preencha ${c.name}.`);
+          return;
+        } else if (raw) {
+          fields[c.name] = raw;
+        }
       }
       for (const ex of svc.apiExtra ?? []) {
-        const v = extras[ex.key]?.trim();
+        const v = (values[ex.key] ?? '').trim();
+        if (ex.required && !v) {
+          setError(`Preencha ${ex.label}.`);
+          return;
+        }
         if (v) fields[ex.key] = v;
       }
     }
+    const primeiro = apiCampos[0];
+    const primeiroVal = primeiro ? (values[primeiro.name] ?? '').trim() : '';
+    const primeiroNumero = !!primeiro && (primeiro.name === 'Quantity' || primeiro.type === 'number');
+    const deviceLabel =
+      apiCampos.length === 0
+        ? (values['__identificador'] ?? '').trim() || model.trim() || 'Pedido de serviço'
+        : primeiroNumero
+          ? `Aluguel de ferramenta (x${Math.floor(Number(primeiroVal) || 0)})`
+          : primeiroVal || model.trim() || 'Pedido de serviço';
+    setBusy(true);
     try {
       const db = getDbFirebase();
       const idToken = await user!.getIdToken();
@@ -146,33 +176,40 @@ function NovoPedido() {
             )}
 
             <div className="grid gap-5 sm:grid-cols-2">
-              {svc?.apiField === 'Quantity' ? (
-                <div>
-                  <label htmlFor="quantity" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    Quantidade *
-                  </label>
-                  <input
-                    id="quantity"
-                    type="number"
-                    min={1}
-                    step={1}
-                    required
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-                    className="input-dark font-mono"
-                  />
-                </div>
-              ) : (
+              {apiCampos.map((c) => {
+                const isQty = c.name === 'Quantity' || c.type === 'number';
+                return (
+                  <div key={c.name}>
+                    <label
+                      htmlFor={`campo-${c.name}`}
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                    >
+                      {c.name} {c.required ? '*' : ''}
+                    </label>
+                    <input
+                      id={`campo-${c.name}`}
+                      type={isQty ? 'number' : c.type === 'email' ? 'email' : 'text'}
+                      min={isQty ? 1 : undefined}
+                      step={isQty ? 1 : undefined}
+                      required={!!c.required}
+                      value={values[c.name] ?? ''}
+                      onChange={(e) => setValues((prev) => ({ ...prev, [c.name]: e.target.value }))}
+                      placeholder={isQty ? `${c.name} (ex.: 1)` : c.required ? c.name : `${c.name} (opcional)`}
+                      className="input-dark font-mono"
+                    />
+                  </div>
+                );
+              })}
+              {apiCampos.length === 0 && (
                 <div>
                   <label htmlFor="identifier" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    {svc?.apiField ? `${svc.apiField} *` : 'IMEI / Identificador *'}
+                    IMEI / Identificador
                   </label>
                   <input
                     id="identifier"
-                    required={svc?.provider === 'auto'}
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder={svc?.apiField ? `${svc.apiField} do aparelho` : 'Ex.: 356938035643809'}
+                    value={values['__identificador'] ?? ''}
+                    onChange={(e) => setValues((prev) => ({ ...prev, __identificador: e.target.value }))}
+                    placeholder="Ex.: 356938035643809"
                     className="input-dark font-mono"
                   />
                 </div>
@@ -185,7 +222,7 @@ function NovoPedido() {
                   id="model"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder={svc?.apiField === 'Quantity' ? 'Opcional' : 'Ex.: Galaxy A54'}
+                  placeholder="Ex.: Galaxy A54"
                   className="input-dark"
                 />
               </div>
@@ -199,8 +236,8 @@ function NovoPedido() {
                 <input
                   id={`extra-${extra.key}`}
                   required={!!extra.required}
-                  value={extras[extra.key] ?? ''}
-                  onChange={(e) => setExtras((prev) => ({ ...prev, [extra.key]: e.target.value }))}
+                  value={values[extra.key] ?? ''}
+                  onChange={(e) => setValues((prev) => ({ ...prev, [extra.key]: e.target.value }))}
                   placeholder={extra.label}
                   className="input-dark"
                 />

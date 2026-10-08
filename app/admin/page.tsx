@@ -105,6 +105,13 @@ function Admin() {
     total: number;
     sample: string[];
   } | null>(null);
+  const [diag, setDiag] = useState<{
+    clientProject: string;
+    serverProject: string;
+    serverCount: number;
+    projectsMatch: boolean;
+  } | null>(null);
+  const [diagErro, setDiagErro] = useState<string | null>(null);
 
   const dlFiltrados = useMemo(() => {
     const q = dlBusca.trim().toLowerCase();
@@ -659,6 +666,39 @@ function Admin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
+  const carregarDiagnostico = async () => {
+    setDiagErro(null);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/diagnostics', { headers: { Authorization: `Bearer ${idToken}` } });
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        clientProject?: string;
+        serverProject?: string;
+        serverCount?: number;
+        projectsMatch?: boolean;
+        message?: string;
+      } | null;
+      if (res.ok && data?.ok) {
+        setDiag({
+          clientProject: data.clientProject ?? '',
+          serverProject: data.serverProject ?? '',
+          serverCount: data.serverCount ?? -1,
+          projectsMatch: data.projectsMatch ?? false,
+        });
+      } else {
+        setDiagErro(data?.message ?? 'Falha no diagnóstico.');
+      }
+    } catch {
+      setDiagErro('Falha na comunicação.');
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin) carregarDiagnostico();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
   const adicionarApi = async (p: ApiProd, categoryId: string) => {
     const price = Number(apiPrecos[p.uuid]);
     if (!Number.isFinite(price) || price <= 0) {
@@ -760,6 +800,40 @@ function Admin() {
               Altere o preço e salve — vale na hora para todos. Use Ocultar/Exibir
               para escolher o que aparece nas páginas. ({services.length} serviços)
             </p>
+            {diag && (
+              <div
+                className={`mt-3 rounded-xl border p-3 text-sm ${
+                  diag.projectsMatch
+                    ? 'border-emerald-800/60 bg-emerald-950/30 text-emerald-300'
+                    : 'border-red-800/60 bg-red-950/30 text-red-300'
+                }`}
+              >
+                {diag.projectsMatch ? (
+                  <p>
+                    ✅ Banco conectado: <b>{diag.serverCount >= 0 ? diag.serverCount : '?'} serviços</b> no
+                    projeto <b>{diag.clientProject}</b>. Se o contador acima não subir depois de puxar, rode o
+                    "Puxar TUDO e organizar" de novo (a rota agora grava em lotes e continua de onde parou).
+                  </p>
+                ) : (
+                  <div>
+                    <p className="font-semibold">⚠️ Projetos DIFERENTES — o puxar grava num banco e o site lê em outro.</p>
+                    <p className="mt-1">
+                      Site (cliente) lê <b>{diag.clientProject || '(vazio)'}</b> · mostra{' '}
+                      {services.length} serviços na tela.
+                      <br />
+                      Servidor grava em <b>{diag.serverProject || '(vazio)'}</b> · tem{' '}
+                      {diag.serverCount >= 0 ? diag.serverCount : '?'} serviços lá.
+                    </p>
+                    <p className="mt-1">
+                      Na Vercel, deixe <code className="rounded bg-black/40 px-1 py-0.5">NEXT_PUBLIC_FIREBASE_PROJECT_ID</code>{' '}
+                      igual ao <code className="rounded bg-black/40 px-1 py-0.5">project_id</code> dentro do{' '}
+                      <code className="rounded bg-black/40 px-1 py-0.5">FIREBASE_SERVICE_ACCOUNT</code>, e faça um novo deploy.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            {diagErro && <p className="mt-2 text-xs text-red-400">{diagErro}</p>}
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setMostrarNovo((v) => !v)}

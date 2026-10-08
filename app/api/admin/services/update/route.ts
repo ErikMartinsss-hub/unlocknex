@@ -5,8 +5,8 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 export const runtime = 'nodejs';
 
 /**
- * Atualiza preço / disponibilidade / imagem de um serviço.
- * POST /api/admin/services/update { serviceId, price?, isActive?, imageUrl? }
+ * Atualiza preço / disponibilidade / imagem / prazo de um serviço.
+ * POST /api/admin/services/update { serviceId, price?, isActive?, imageUrl?, deliveryTime? }
  * imageUrl: '' remove a imagem. Restrito a role 'admin'. Usa merge.
  */
 export async function POST(req: NextRequest) {
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     price?: number;
     isActive?: boolean;
     imageUrl?: string;
+    deliveryTime?: string;
   } | null;
   const serviceId = String(body?.serviceId ?? '').trim();
   if (!serviceId || serviceId.length > 60) {
@@ -51,6 +52,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, message: 'Disponibilidade inválida.' }, { status: 400 });
     }
     patch.isActive = body.isActive;
+  }
+  if (body?.deliveryTime !== undefined) {
+    const dt = String(body.deliveryTime).trim();
+    if (!dt || dt.length > 60) {
+      return NextResponse.json({ ok: false, message: 'Prazo inválido.' }, { status: 400 });
+    }
+    patch.deliveryTime = dt;
   }
   if (body?.imageUrl !== undefined) {
     if (typeof body.imageUrl !== 'string' || body.imageUrl.length > 500) {

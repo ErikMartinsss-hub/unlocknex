@@ -62,6 +62,14 @@ function Admin() {
   const [licPreco, setLicPreco] = useState('');
   const [licPrazo, setLicPrazo] = useState('');
   const [licBusy, setLicBusy] = useState(false);
+  const [prazos, setPrazos] = useState<Record<string, string>>({});
+  const [licStatus, setLicStatus] = useState<{
+    added: string[];
+    skipped: number;
+    matched: string[];
+    total: number;
+    sample: string[];
+  } | null>(null);
 
   const dlFiltrados = useMemo(() => {
     const q = dlBusca.trim().toLowerCase();
@@ -79,7 +87,7 @@ function Admin() {
     );
   }, [services, busca]);
 
-  const atualizarServico = async (serviceId: string, patch: { price?: number; isActive?: boolean; imageUrl?: string }) => {
+  const atualizarServico = async (serviceId: string, patch: { price?: number; isActive?: boolean; imageUrl?: string; deliveryTime?: string }) => {
     setSalvando((m) => ({ ...m, [serviceId]: true }));
     try {
       const idToken = await user!.getIdToken();
@@ -101,6 +109,11 @@ function Admin() {
           delete c[serviceId];
           return c;
         });
+        setPrazos((m) => {
+          const c = { ...m };
+          delete c[serviceId];
+          return c;
+        });
       } else {
         push(data.message ?? 'Falha ao salvar.', 'err');
       }
@@ -112,7 +125,7 @@ function Admin() {
   };
 
   const salvarLinha = (serviceId: string) => {
-    const patch: { price?: number; imageUrl?: string } = {};
+    const patch: { price?: number; imageUrl?: string; deliveryTime?: string } = {};
     const bruto = (rascunhos[serviceId] ?? '').replace(',', '.').trim();
     if (bruto !== '') {
       const valor = Number(bruto);
@@ -121,6 +134,14 @@ function Admin() {
         return;
       }
       patch.price = Math.round(valor * 100) / 100;
+    }
+    const prazo = (prazos[serviceId] ?? '').trim();
+    if (prazo !== '') {
+      if (prazo.length > 60) {
+        push('Prazo muito longo (máx. 60 caracteres).', 'err');
+        return;
+      }
+      patch.deliveryTime = prazo;
     }
     const url = (linksImg[serviceId] ?? '').trim();
     if (url !== '') {
@@ -445,13 +466,22 @@ function Admin() {
         ok?: boolean;
         added?: string[];
         skipped?: number;
+        matched?: string[];
+        total?: number;
+        sample?: string[];
         message?: string;
       };
       if (res.ok && data.ok) {
-        const nomes = (data.added ?? []).slice(0, 3).join(', ');
-        if ((data.added ?? []).length > 0) {
-          const resto = (data.added ?? []).length > 3 ? ` (+${data.added!.length - 3} mais)` : '';
-          push(`Licenças adicionadas (${data.added!.length}): ${nomes}${resto}${data.skipped ? ` • ${data.skipped} já existiam` : ''}`, 'ok');
+        const added = data.added ?? [];
+        setLicStatus({
+          added,
+          skipped: data.skipped ?? 0,
+          matched: data.matched ?? added,
+          total: data.total ?? 0,
+          sample: data.sample ?? [],
+        });
+        if (added.length > 0) {
+          push(`Licenças adicionadas: ${added.length}.`, 'ok');
         } else if ((data.skipped ?? 0) > 0) {
           push(`${data.skipped} produtos de licença já estavam cadastrados.`, 'ok');
         } else {
@@ -685,6 +715,7 @@ function Admin() {
                     <p className="truncate text-sm font-medium text-zinc-200">{s.name}</p>
                     <p className="text-xs text-zinc-500">
                       Atual: <span className="font-bold text-neon-400">{brl(s.price)}</span>
+                      {s.deliveryTime ? ` • ${s.deliveryTime}` : ''}
                       {s.isActive === false && ' • oculto'}
                     </p>
                   </div>
@@ -693,6 +724,13 @@ function Admin() {
                     onChange={(e) => setRascunhos((m) => ({ ...m, [s.id]: e.target.value }))}
                     placeholder="Novo preço"
                     inputMode="decimal"
+                    className="input-dark w-28"
+                  />
+                  <input
+                    value={prazos[s.id] ?? ''}
+                    onChange={(e) => setPrazos((m) => ({ ...m, [s.id]: e.target.value }))}
+                    placeholder="Prazo"
+                    title="Novo prazo de entrega"
                     className="input-dark w-28"
                   />
                   <button
@@ -923,6 +961,42 @@ function Admin() {
                 {licBusy ? 'Puxando…' : 'Puxar licenças da API'}
               </button>
             </div>
+
+            {licStatus && (
+              <div
+                className={`mt-3 rounded-xl border p-3 text-xs ${
+                  licStatus.matched.length > 0
+                    ? 'border-fuchsia-500/30 bg-fuchsia-500/5'
+                    : 'border-amber-500/30 bg-amber-500/5'
+                }`}
+              >
+                {licStatus.matched.length > 0 ? (
+                  <>
+                    <p className="font-semibold text-fuchsia-300">
+                      {licStatus.added.length} adicionadas,
+                      {licStatus.skipped ? ` ${licStatus.skipped} já existiam.` : ' direto na página Ativação de Licença.'}
+                    </p>
+                    <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1 text-zinc-300">
+                      {licStatus.matched.map((n) => (
+                        <li key={n}>• {n}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-amber-300">
+                      Nenhum produto de licença encontrado (o catálogo da API tem {licStatus.total} produtos).
+                      Veja abaixo o que a API retornou:
+                    </p>
+                    <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1 text-zinc-400">
+                      {licStatus.sample.map((n) => (
+                        <li key={n}>• {n}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="mt-4 max-h-[520px] space-y-2 overflow-y-auto pr-1">
               {catalogFiltrado.length === 0 && (

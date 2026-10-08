@@ -58,13 +58,20 @@ export async function POST(req: NextRequest) {
   const data = await huGetProducts();
   const products = Object.values(data.products ?? {});
   const matches = products.filter((p) => KEYWORDS.test(p.name ?? ''));
+  const matchedNames = matches.map((p) => p.name ?? '');
 
   if (matches.length === 0) {
     return NextResponse.json({
       ok: true,
       added: [],
       skipped: 0,
-      message: 'Nenhum produto de licença encontrado no catálogo da API.',
+      matched: [],
+      total: products.length,
+      sample: products
+        .map((p) => p.name ?? '')
+        .filter(Boolean)
+        .slice(0, 24),
+      message: `Nenhum produto de licença encontrado (o catálogo tem ${products.length} produtos).`,
     });
   }
 
@@ -102,5 +109,12 @@ export async function POST(req: NextRequest) {
     added.push(p.name);
   }
 
-  return NextResponse.json({ ok: true, added, skipped, total: matches.length });
+  return NextResponse.json({
+    ok: true,
+    added,
+    skipped,
+    matched: matchedNames,
+    total: products.length,
+    sample: [],
+  });
 }

@@ -46,7 +46,15 @@ export async function huGetProducts(): Promise<{ currency: string; categories: R
   const json = await huRequest<{ currency: string; categories: Record<string, { name: string }>; products: Record<string, HuProduct> }>(
     '/api/reseller/v1/products'
   );
-  return json.data;
+  // A API não devolve `uuid` no produto: o identificador é a PRÓPRIA CHAVE
+  // do objeto (ex.: "2068"). Injeta a chave como `uuid` para o restante do
+  // app (catálogo no /admin, puxar licenças, pedidos) funcionar — valores
+  // numéricos são enviados à API como product_id (ver huPlaceOrders).
+  const products: Record<string, HuProduct> = {};
+  for (const [key, p] of Object.entries(json.data.products ?? {})) {
+    products[key] = { ...p, uuid: key };
+  }
+  return { ...json.data, products };
 }
 
 export type HuOrderRequest = {

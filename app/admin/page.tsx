@@ -59,6 +59,8 @@ function Admin() {
   const [novoDesc, setNovoDesc] = useState('');
   const [novoImg, setNovoImg] = useState('');
   const [novoBusy, setNovoBusy] = useState(false);
+  const [licPreco, setLicPreco] = useState('');
+  const [licBusy, setLicBusy] = useState(false);
 
   const dlFiltrados = useMemo(() => {
     const q = dlBusca.trim().toLowerCase();
@@ -421,6 +423,47 @@ function Admin() {
       push('Falha na comunicação. Tente novamente.', 'err');
     } finally {
       setNovoBusy(false);
+    }
+  };
+
+  const puxarLicencas = async () => {
+    const price = Number(licPreco);
+    if (!Number.isFinite(price) || price <= 0) {
+      push('Defina o preço padrão das licenças.', 'err');
+      return;
+    }
+    setLicBusy(true);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/services/pull-licenca', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ price }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        added?: string[];
+        skipped?: number;
+        message?: string;
+      };
+      if (res.ok && data.ok) {
+        const nomes = (data.added ?? []).slice(0, 3).join(', ');
+        if ((data.added ?? []).length > 0) {
+          const resto = (data.added ?? []).length > 3 ? ` (+${data.added!.length - 3} mais)` : '';
+          push(`Licenças adicionadas (${data.added!.length}): ${nomes}${resto}${data.skipped ? ` • ${data.skipped} já existiam` : ''}`, 'ok');
+        } else if ((data.skipped ?? 0) > 0) {
+          push(`${data.skipped} produtos de licença já estavam cadastrados.`, 'ok');
+        } else {
+          push(data.message ?? 'Nenhum produto de licença encontrado na API.', 'err');
+        }
+        setLicPreco('');
+      } else {
+        push(data.message ?? 'Falha ao puxar licenças.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setLicBusy(false);
     }
   };
 
@@ -848,6 +891,29 @@ function Admin() {
                 placeholder="Buscar produto na API…"
                 className="input-dark w-full"
               />
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/5 p-3">
+              <p className="min-w-0 flex-1 basis-48 text-xs text-zinc-300">
+                <span className="font-bold text-fuchsia-400">Puxar ativação de licença da API</span>{' '}
+                — encontra os produtos de licença (UnlockTool Renew / Activation / License) e adiciona
+                direto na página <span className="font-semibold text-zinc-100">Ativação de Licença</span>,
+                com o preço padrão abaixo.
+              </p>
+              <input
+                value={licPreco}
+                onChange={(e) => setLicPreco(e.target.value)}
+                placeholder="Preço padrão R$"
+                inputMode="decimal"
+                className="input-dark w-28"
+              />
+              <button
+                onClick={puxarLicencas}
+                disabled={licBusy}
+                className="btn-neon px-3.5 py-2 text-xs disabled:opacity-50"
+              >
+                {licBusy ? 'Puxando…' : 'Puxar licenças da API'}
+              </button>
             </div>
 
             <div className="mt-4 max-h-[520px] space-y-2 overflow-y-auto pr-1">

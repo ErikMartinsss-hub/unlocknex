@@ -51,6 +51,14 @@ function Admin() {
   const [apiDestino, setApiDestino] = useState<Record<string, string>>({});
   const [apiAdding, setApiAdding] = useState<Record<string, 'remote' | 'servico'>>({});
   const [removendo, setRemovendo] = useState<Record<string, boolean>>({});
+  const [mostrarNovo, setMostrarNovo] = useState(false);
+  const [novoNome, setNovoNome] = useState('');
+  const [novoCategoria, setNovoCategoria] = useState('cat-frp');
+  const [novoPreco, setNovoPreco] = useState('');
+  const [novoPrazo, setNovoPrazo] = useState('');
+  const [novoDesc, setNovoDesc] = useState('');
+  const [novoImg, setNovoImg] = useState('');
+  const [novoBusy, setNovoBusy] = useState(false);
 
   const dlFiltrados = useMemo(() => {
     const q = dlBusca.trim().toLowerCase();
@@ -368,6 +376,54 @@ function Admin() {
     }
   };
 
+  const adicionarManual = async () => {
+    const name = novoNome.trim();
+    const price = Number(novoPreco);
+    if (!name) {
+      push('Dê um nome ao serviço.', 'err');
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      push('Defina um preço válido.', 'err');
+      return;
+    }
+    setNovoBusy(true);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch('/api/admin/services/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          name,
+          categoryId: novoCategoria,
+          price,
+          deliveryTime: novoPrazo.trim() || undefined,
+          description: novoDesc.trim() || undefined,
+          imageUrl: novoImg.trim() || undefined,
+        }),
+      });
+      const data = (await res.json().catch(() => ({ ok: false }))) as {
+        ok?: boolean;
+        message?: string;
+      };
+      if (res.ok && data.ok) {
+        push(data.message ?? `Adicionado: ${name}`, 'ok');
+        setNovoNome('');
+        setNovoPreco('');
+        setNovoPrazo('');
+        setNovoDesc('');
+        setNovoImg('');
+        setMostrarNovo(false);
+      } else {
+        push(data.message ?? 'Falha ao adicionar.', 'err');
+      }
+    } catch {
+      push('Falha na comunicação. Tente novamente.', 'err');
+    } finally {
+      setNovoBusy(false);
+    }
+  };
+
   const carregarCatalogo = async () => {
     setCatBusy(true);
     setCatErro(null);
@@ -498,12 +554,78 @@ function Admin() {
               Altere o preço e salve — vale na hora para todos. Use Ocultar/Exibir
               para escolher o que aparece nas páginas. ({services.length} serviços)
             </p>
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar serviço…"
-              className="input-dark mt-4"
-            />
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setMostrarNovo((v) => !v)}
+                className="btn-neon px-4 py-2.5 text-sm"
+              >
+                {mostrarNovo ? 'Cancelar' : '+ Adicionar serviço'}
+              </button>
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar serviço…"
+                className="input-dark flex-1 basis-52"
+              />
+            </div>
+            {mostrarNovo && (
+              <div className="mt-4 space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    value={novoNome}
+                    onChange={(e) => setNovoNome(e.target.value)}
+                    placeholder="Nome do serviço…"
+                    className="input-dark sm:col-span-2"
+                  />
+                  <select
+                    value={novoCategoria}
+                    onChange={(e) => setNovoCategoria(e.target.value)}
+                    className="input-dark"
+                    title="Página onde o serviço vai aparecer"
+                  >
+                    {categorias.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        Página: {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={novoPreco}
+                    onChange={(e) => setNovoPreco(e.target.value)}
+                    placeholder="Preço R$"
+                    inputMode="decimal"
+                    className="input-dark"
+                  />
+                  <input
+                    value={novoPrazo}
+                    onChange={(e) => setNovoPrazo(e.target.value)}
+                    placeholder="Prazo (ex.: Instantâneo)"
+                    className="input-dark"
+                  />
+                  <input
+                    value={novoImg}
+                    onChange={(e) => setNovoImg(e.target.value)}
+                    placeholder="URL da imagem (opcional)"
+                    inputMode="url"
+                    className="input-dark"
+                  />
+                  <textarea
+                    value={novoDesc}
+                    onChange={(e) => setNovoDesc(e.target.value)}
+                    placeholder="Descrição (opcional)"
+                    rows={2}
+                    className="input-dark sm:col-span-2"
+                  />
+                </div>
+                <button
+                  onClick={adicionarManual}
+                  disabled={novoBusy}
+                  className="btn-neon px-5 py-2.5 text-sm disabled:opacity-50"
+                >
+                  {novoBusy ? 'Adicionando…' : 'Adicionar serviço'}
+                </button>
+              </div>
+            )}
             <div className="mt-4 max-h-[480px] space-y-2 overflow-y-auto pr-1">
               {filtrados.map((s) => (
                 <div

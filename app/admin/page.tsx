@@ -8,6 +8,12 @@ import { useToast } from '@/components/Toaster';
 import { useCategories, useDownloads, useServices } from '@/lib/hooks';
 import { brl } from '@/lib/format';
 
+const TIPO_LABELS: Record<string, string> = {
+  imei: 'IMEI Service',
+  server: 'Server Service',
+  remote: 'Remote Service',
+};
+
 function Admin() {
   const { user, profile } = useAuth();
   const { push } = useToast();
@@ -42,7 +48,7 @@ function Admin() {
   const [credResult, setCredResult] = useState<string | null>(null);
 
   // --- Catálogo da API (adicionar serviços um a um) ---
-  type ApiProd = { uuid: string; name: string; price: number; imageUrl: string; field: string };
+  type ApiProd = { uuid: string; name: string; price: number; imageUrl: string; type: string; field: string };
   const [catalog, setCatalog] = useState<ApiProd[]>([]);
   const [apiCats, setApiCats] = useState<Record<string, { name: string }>>({});
   const [apiCatCounts, setApiCatCounts] = useState<Record<string, number>>({});
@@ -65,6 +71,7 @@ function Admin() {
   const [licPrazo, setLicPrazo] = useState('');
   const [licTermo, setLicTermo] = useState('');
   const [licCat, setLicCat] = useState('');
+  const [licTipo, setLicTipo] = useState('');
   const [licDestino, setLicDestino] = useState('cat-licenca');
   const [licBusy, setLicBusy] = useState(false);
   const [prazos, setPrazos] = useState<Record<string, string>>({});
@@ -469,6 +476,7 @@ function Admin() {
           price,
           deliveryTime: licPrazo.trim() || undefined,
           term: licTermo.trim() || undefined,
+          tipo: licTipo || undefined,
           cid: licCat || undefined,
           destino: licDestino,
         }),
@@ -502,6 +510,7 @@ function Admin() {
         setLicPrazo('');
         setLicTermo('');
         setLicCat('');
+        setLicTipo('');
       } else {
         push(data.message ?? 'Falha ao puxar licenças.', 'err');
       }
@@ -586,6 +595,12 @@ function Admin() {
 
   const categorias = useCategories();
   const catServicos = categorias.filter((c) => c.id !== 'cat-remote');
+
+  const apiTipos = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of catalog) if (p.type) m[p.type] = (m[p.type] ?? 0) + 1;
+    return m;
+  }, [catalog]);
 
   const existeUuid = useMemo(() => {
     const s = new Set<string>();
@@ -952,12 +967,28 @@ function Admin() {
 
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/5 p-3">
               <p className="min-w-0 flex-1 basis-56 text-xs text-zinc-300">
-                <span className="font-bold text-fuchsia-400">Puxar da API</span> — escolha uma{' '}
-                <span className="text-zinc-100">categoria da API</span> (ex.: IMEI, Unlock), digite
-                um <span className="text-zinc-100">termo</span> ou puxe{' '}
-                <span className="text-zinc-100">TUDO de uma vez</span>; defina preço e prazo padrão,
-                escolha a <span className="text-zinc-100">página de destino</span> e puxe.
+                <span className="font-bold text-fuchsia-400">Puxar da API</span> — filtre por{' '}
+                <span className="text-zinc-100">tipo</span> (ex.: IMEI Service),
+                <span className="text-zinc-100"> categoria da API</span> ou{' '}
+                <span className="text-zinc-100">termo</span> (ou puxe{' '}
+                <span className="text-zinc-100">TUDO</span>); defina preço e prazo padrão, escolha a{' '}
+                <span className="text-zinc-100">página de destino</span> e puxe.
               </p>
+              <select
+                value={licTipo}
+                onChange={(e) => setLicTipo(e.target.value)}
+                className="input-dark w-44"
+                title="Tipo na API (igual ao filtro Types do site da Heart)"
+              >
+                <option value="">Tipo: todos</option>
+                {Object.entries(apiTipos)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([t, n]) => (
+                    <option key={t} value={t}>
+                      {TIPO_LABELS[t] ?? t} ({n})
+                    </option>
+                  ))}
+              </select>
               <select
                 value={licCat}
                 onChange={(e) => setLicCat(e.target.value)}

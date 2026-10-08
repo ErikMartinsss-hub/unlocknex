@@ -62,7 +62,9 @@ export async function POST(req: NextRequest) {
   const deliveryTime = String(body.deliveryTime ?? '').trim() || 'Instantâneo';
   // Termo opcional digitado pelo admin; sem termo, usa as palavras de licença.
   const term = String(body.term ?? '').trim().toLowerCase();
-  // Categoria da API (cid) e página de destino (categoria do site).
+  // Tipo na API (imei | server | remote — igual ao filtro "Types" do site
+  // da Heart), categoria da API (cid) e página de destino (categoria do site).
+  const tipo = String(body.tipo ?? '').trim();
   const cid = String(body.cid ?? '').trim();
   const destino = String(body.destino ?? '').trim() || 'cat-licenca';
   if (!DESTINOS.has(destino)) {
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest) {
   const data = await huGetProducts();
   const products = Object.values(data.products ?? {});
   const matches = products.filter((p) => {
+    if (tipo && p.type !== tipo) return false;
     if (cid && cid !== '__all__' && p.cid !== cid) return false;
     const nome = p.name ?? '';
     if (cid === '__all__') return true;
@@ -86,9 +89,11 @@ export async function POST(req: NextRequest) {
   if (matches.length === 0) {
     const alvo = cid
       ? 'a categoria selecionada da API'
-      : term
-        ? `"${term}"`
-        : 'as palavras de licença';
+      : tipo
+        ? 'esse tipo da API'
+        : term
+          ? `"${term}"`
+          : 'as palavras de licença';
     return NextResponse.json({
       ok: true,
       added: [],

@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
       name: p.name,
       price: Number(p.price) || 0,
       imageUrl: p.image_url ?? '',
+      type: p.type ?? '',
       // Campo que o cliente vai preencher (IMEI, Serial, Quantity…) — o
       // primeiro campo obrigatório do produto, com fallback 'Serial'.
       field: (p.fields ?? []).find((f) => f.required)?.name ?? p.fields?.[0]?.name ?? 'Serial',
